@@ -12,6 +12,9 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = { theme: { extend: {
+    height: {
+      'half': '50%'
+    },
     colors: { acacia: {50:'#eef7ff',100:'#d9ecff',200:'#b6d9ff',300:'#83bfff',400:'#4a9dff',500:'#1f7aef',600:'#0f5fd1',700:'#0d4ca8',800:'#103f85',900:'#12376b'}},
     fontFamily: { sans: ['Inter','system-ui','sans-serif'] }
   }}}
@@ -90,11 +93,12 @@
       <button onclick="signOut()" class="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium text-slate-600">Sign out</button>
     </div>
   </header>
-  <div class="flex flex-1 overflow-hidden">
+  <div class="flex flex-1 overflow-hidden relative">
     <aside class="w-60 bg-white border-r border-slate-200 p-2 overflow-y-auto shrink-0">
       <div class="text-[10px] font-bold uppercase text-slate-400 px-2 mb-2 tracking-wider">👥 Sales Hub</div>
       <nav id="navList" class="space-y-1 text-sm"></nav>
     </aside>
+
     <div class="flex-1 flex flex-col overflow-hidden bg-slate-50">
       <div class="p-4 shrink-0 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
@@ -108,6 +112,140 @@
       </div>
       <main class="flex-1 overflow-auto px-4 pb-4"><div id="view" class="fade-in"></div></main>
     </div>
+
+    <aside id="rightSidebar" class="hidden w-12 bg-white border-l border-slate-200 p-2 overflow-y-auto shrink-0 flex flex-col items-center space-y-4">
+      <button onclick="toggleAcaciaNotebook()" title="Acacia Notebook" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors text-base">📔</button>
+      <button onclick="toggleWebinarPanel()" title="Webinars" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors text-base">🎥</button>
+      <button onclick="toggleCommPanel()" title="Communication" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors text-base">💬</button>
+      <button onclick="toggleSupportPopup()" title="Support Hub" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors text-base">🎧</button>
+      <button onclick="toggleOrgDetails()" title="Organization Details" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors text-base">🏢</button>
+      <div class="w-6 h-px bg-slate-200 my-1"></div>
+      <button onclick="openGDocs()" title="Google Docs" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors text-base">📄</button>
+      <button onclick="openGSheets()" title="Google Sheets" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors text-base">📊</button>
+      <button onclick="openGPhotos()" title="Google Photos" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors text-base">🖼️</button>
+      <button onclick="openGCalendar()" title="Google Calendar" class="w-8 h-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors text-base">📅</button>
+    </aside>
+
+    <div id="acaciaNotebookPanel" class="hidden fixed top-20 right-16 w-80 h-half bg-white border border-gray-200 rounded-xl shadow-2xl flex flex-col z-20 overflow-hidden text-xs">
+      <div class="p-3 bg-purple-600 text-white font-bold flex justify-between items-center shrink-0">
+        <span>📔 Acacia Notebook</span>
+        <button onclick="toggleAcaciaNotebook()" class="hover:text-purple-200 font-bold text-sm">✕</button>
+      </div>
+      <div class="p-2 bg-slate-50 border-b border-gray-200 flex gap-1 shrink-0">
+        <button onclick="setNoteCategory('Work')" class="px-2 py-1 bg-purple-100 text-purple-700 rounded-md font-medium hover:bg-purple-200">Work</button>
+        <button onclick="setNoteCategory('Personal')" class="px-2 py-1 bg-blue-100 text-blue-700 rounded-md font-medium hover:bg-blue-200">Personal</button>
+        <button onclick="setNoteCategory('Ideas')" class="px-2 py-1 bg-amber-100 text-amber-700 rounded-md font-medium hover:bg-amber-200">Ideas</button>
+      </div>
+      <div id="acaciaNoteList" class="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50/50"></div>
+      <div class="p-2 bg-white border-t border-gray-100 flex gap-1 shrink-0">
+        <input id="acaciaNoteText" type="text" placeholder="Write operational note..." class="flex-1 h-8 px-2 border border-gray-300 rounded-md outline-none text-xs" />
+        <button onclick="saveAcaciaNote()" class="px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-bold text-xs">Save</button>
+        <button onclick="clearAcaciaNotes()" class="px-2 border border-gray-200 text-gray-500 rounded-md hover:bg-gray-50 text-xs">Clear</button>
+      </div>
+    </div>
+
+    <div id="webinarPanel" class="hidden fixed top-20 right-16 w-80 h-half bg-white border border-gray-200 rounded-xl shadow-2xl flex flex-col z-20 overflow-hidden text-xs">
+      <div class="p-3 bg-rose-600 text-white font-bold flex justify-between items-center shrink-0">
+        <span>🎥 Webinar Scheduler</span>
+        <button onclick="toggleWebinarPanel()" class="hover:text-rose-200 font-bold text-sm">✕</button>
+      </div>
+      <div class="p-3 border-b border-gray-200 bg-slate-50 space-y-2 shrink-0">
+        <input id="webinarTitle" type="text" placeholder="Webinar Session Title" class="w-full h-8 px-2 border border-gray-300 rounded-md outline-none text-xs bg-white" />
+        <div class="grid grid-cols-2 gap-1.5">
+          <input id="webinarDate" type="datetime-local" class="h-8 px-2 border border-gray-300 rounded-md outline-none text-xs bg-white" />
+          <input id="webinarLink" type="text" placeholder="Meeting URL Link" class="h-8 px-2 border border-gray-300 rounded-md outline-none text-xs bg-white" />
+        </div>
+        <div class="flex gap-1.5">
+          <button onclick="addWebinar()" class="flex-1 h-8 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-md text-xs">Add Session</button>
+          <button onclick="clearWebinars()" class="px-2 border border-gray-200 text-gray-500 rounded-md hover:bg-gray-50 text-xs">Clear</button>
+        </div>
+      </div>
+      <div id="webinarList" class="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50/50"></div>
+    </div>
+
+    <div id="commPanel" class="hidden fixed top-20 right-16 w-80 h-half bg-white border border-gray-200 rounded-xl shadow-2xl flex flex-col z-20 overflow-hidden text-xs">
+      <div class="p-3 bg-blue-700 text-white font-bold flex justify-between items-center shrink-0">
+        <span>💬 Dispatch Terminal</span>
+        <button onclick="toggleCommPanel()" class="hover:text-blue-200 font-bold text-sm">✕</button>
+      </div>
+      <div class="p-3 border-b border-gray-200 bg-slate-50 space-y-2 shrink-0">
+        <input id="commUser" type="text" placeholder="Recipient user identifier" class="w-full h-8 px-2 border border-gray-300 rounded-md outline-none text-xs bg-white" />
+        <textarea id="commMessage" placeholder="Type internal memo data lines..." class="w-full h-14 p-2 border border-gray-300 rounded-md outline-none text-xs resize-none bg-white"></textarea>
+        <div class="flex gap-1 justify-between items-center">
+          <div class="flex gap-1">
+            <button onclick="insertTemplate('Invoice Link')" class="px-1.5 py-0.5 bg-gray-200 rounded text-[10px] text-gray-600 hover:bg-gray-300">Invoice template</button>
+            <button onclick="insertTemplate('Report Update')" class="px-1.5 py-0.5 bg-gray-200 rounded text-[10px] text-gray-600 hover:bg-gray-300">Report update</button>
+          </div>
+          <button onclick="sendPrivateMessage()" class="px-3 h-7 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-md text-xs">Send</button>
+        </div>
+        <button onclick="sharePrivateReport()" class="w-full h-7 border border-blue-200 text-blue-700 hover:bg-blue-50 font-medium rounded-md text-xs">Share Cryptographic Ledger Report Context</button>
+      </div>
+      <div id="commLog" class="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50/50"></div>
+    </div>
+
+    <div id="supportPopup" class="hidden fixed bottom-20 right-4 w-96 bg-white border border-gray-300 rounded-lg shadow-xl z-50">
+
+    <div class="bg-blue-900 text-white px-3 py-2 rounded-t-lg flex justify-between items-center">
+        <div>
+            <h3 class="font-bold">🎧 Acacia AI Support</h3>
+            <small class="text-blue-100">Ask me anything about Acacia Sales Hub</small>
+        </div>
+        <button onclick="toggleSupportPopup()" class="text-white text-xl hover:text-gray-200">✕</button>
+    </div>
+
+    <div id="supportMessages" class="h-80 overflow-y-auto p-3 bg-white text-black text-sm space-y-2">
+        <div class="bg-white border border-gray-300 rounded-lg shadow-sm p-3">
+            <h2 class="text-base font-bold text-blue-900 mb-1">🎧Welcome to Acacia AI Support</h2>
+            <p class="text-gray-700 text-xs mb-3">I'm your intelligent Acacia Sales Hub assistant. I can guide you through managing ledger workflows, tracking sales pipelines, and resolving module questions.</p>
+            
+            <p class="font-semibold text-gray-800 text-xs mb-1">📊 Covered Sales Modules:</p>
+            <div class="grid grid-cols-2 gap-1 text-xs mb-3 text-gray-700">
+                <div>👥 Customers</div>
+                <div>📄 Invoices</div>
+                <div>✉️ Quotes</div>
+                <div>🛒 Orders</div>
+                <div>📦 Bulk Invoicing</div>
+                <div>💳 Credit Notes</div>
+                <div>↩️ Sales Returns</div>
+                <div>💰 Receipts</div>
+                <div>🔁 Recurring Invoices</div>
+                <div>🚚 Delivery</div>
+                <div>📊 Statement</div>
+            </div>
+
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-1">
+                <p class="font-semibold text-blue-900 text-xs mb-1">💬 Try asking:</p>
+                <ul class="list-disc ml-4 space-y-0.5 text-gray-700 text-xs">
+                    <li>How do I add a new client to the Customers Registry?</li>
+                    <li>How can I execute a Bulk Invoicing run?</li>
+                    <li>Where do I log a Credit Note or Sales Return?</li>
+                    <li>How do I check a customer's total outstanding Statement?</li>
+                    <li>How do I dispatch an active Delivery tracking item?</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="border-t p-2 bg-gray-50 flex flex-col gap-1">
+        <div class="flex gap-1">
+            <a href="https://wa.me/254717346231" target="_blank" class="flex-1 flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white py-1.5 rounded text-xs font-semibold transition">
+                📱 WhatsApp
+            </a>
+            <a href="mailto:info@acaciabooks.ke" class="flex-1 flex items-center justify-center gap-1 bg-gray-600 hover:bg-gray-700 text-white py-1.5 rounded text-xs font-semibold transition">
+                📧 Email
+            </a>
+            <button onclick="toggleTawkChat()" class="flex-1 flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 text-white py-1.5 rounded text-xs font-semibold transition">
+                💬 Chat
+            </button>
+        </div>
+    </div>
+
+    <div class="border-t p-2">
+        <input id="supportQuestion" type="text" class="w-full border border-gray-300 rounded px-2 py-1.5 mb-1.5 text-xs text-black placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Type your sales module question...">
+        <button onclick="sendSupportQuestion()" class="w-full bg-blue-900 hover:bg-blue-800 text-white py-1.5 rounded text-xs font-semibold transition">Send</button>
+    </div>
+
+</div>
   </div>
 </div>
 
@@ -290,7 +428,7 @@ const FIELDS_SCHEMAS = {
   ],
   delivery: [
     { key:'delivery_note_number', label:'Delivery Note #', type:'text', placeholder:'DN-010', required:true },
-    { key:'date', label:'Dispatched Date', type:'date', required:true },
+    { key:'date', text:'Dispatched Date', type:'date', required:true },
     { key:'order_reference', label:'Source Sales Order', type:'select', source:'orders', required:true },
     { key:'carrier_details', label:'Logistics / Carrier Team', type:'text', placeholder:'Internal Rider / G4S' }
   ],
@@ -622,10 +760,147 @@ async function sendMailFromApp(e){
   mmStatus.textContent = '⚡ Dispatched over Acacia Core Fabric.'; setTimeout(closeMail, 1000);
 }
 
+let activeCategory = "Work";
+function toggleRightSidebar() { document.getElementById('rightSidebar')?.classList.toggle('hidden'); }
+function toggleAcaciaNotebook() { document.getElementById('acaciaNotebookPanel')?.classList.toggle('hidden'); }
+function toggleWebinarPanel() { document.getElementById('webinarPanel')?.classList.toggle('hidden'); }
+function toggleCommPanel() { document.getElementById('commPanel')?.classList.toggle('hidden'); }
+function toggleSupportPopup() { document.getElementById('supportPopup')?.classList.toggle('hidden'); }
+function toggleOrgDetails() {
+  const panel = document.getElementById('orgDetailsPanel');
+  panel?.classList.toggle('hidden');
+  if(panel && !panel.classList.contains('hidden')) { loadOrgDetails(); }
+}
+
+function openGDocs() { window.open('https://docs.google.com', '_blank'); }
+function openGSheets() { window.open('https://sheets.google.com', '_blank'); }
+function openGPhotos() { window.open('https://photos.google.com', '_blank'); }
+function openGCalendar() { window.open('https://calendar.google.com', '_blank'); }
+
+function loadOrgDetails() {
+  const user = currentUser() || { companyName: "Acacia Partner Node", email: "guest@acacia.ke" };
+  const container = document.getElementById('orgInfoContainer');
+  if (container) {
+    container.innerHTML = `
+      <div class="space-y-1">
+        <p><b>Registered Entity:</b> ${escapeHtml(user.companyName)}</p>
+        <p><b>Context System Node:</b> ${escapeHtml(user.companyId || 'comp_default')}</p>
+        <p><b>Operator email ID:</b> ${escapeHtml(user.email)}</p>
+        <p><b>Federated Status:</b> Active Operational Pipeline</p>
+      </div>`;
+  }
+}
+
+function setNoteCategory(cat) { activeCategory = cat; alert(`Active category tagged: ${cat}`); }
+function saveAcaciaNote() {
+  const txt = document.getElementById('acaciaNoteText')?.value.trim();
+  if(!txt) return;
+  const list = document.getElementById('acaciaNoteList');
+  const div = document.createElement('div');
+  div.className = "p-1.5 mb-1 bg-white border-l-4 border-purple-500 rounded text-xs shadow-xs text-slate-700 font-sans";
+  div.innerHTML = `<strong>[${activeCategory}]</strong> ${escapeHtml(txt)}`;
+  list?.prepend(div);
+  document.getElementById('acaciaNoteText').value = "";
+}
+function clearAcaciaNotes() { const list = document.getElementById('acaciaNoteList'); if(list) list.innerHTML = ""; }
+
+function addWebinar() {
+  const title = document.getElementById('webinarTitle')?.value.trim();
+  const date = document.getElementById('webinarDate')?.value;
+  const link = document.getElementById('webinarLink')?.value.trim();
+  if(!title || !date) return alert('Title and Date are required');
+  
+  const wList = document.getElementById('webinarList');
+  const item = document.createElement('div');
+  item.className = "p-2 bg-white border border-gray-200 rounded-xl mb-1 shadow-xs flex flex-col font-sans text-slate-700";
+  item.innerHTML = `<span class="font-bold text-gray-800">${escapeHtml(title)}</span>
+                    <span class="text-[10px] text-gray-500">📅 ${date}</span>
+                    ${link ? `<a href="${link}" target="_blank" class="text-blue-600 hover:underline text-[11px] font-medium mt-0.5">🔗 Connect Session</a>`:''}`;
+  wList?.prepend(item);
+  document.getElementById('webinarTitle').value = "";
+  document.getElementById('webinarDate').value = "";
+  document.getElementById('webinarLink').value = "";
+}
+function clearWebinars() { const list = document.getElementById('webinarList'); if(list) list.innerHTML = ""; }
+
+function insertTemplate(type) {
+  const area = document.getElementById('commMessage');
+  if(!area) return;
+  if(type === 'Invoice Link') area.value = "Greetings, Please evaluate outstanding billing items assigned to your hub profile via link reference:";
+  if(type === 'Report Update') area.value = "The updated pipeline ledger performance analysis indicators are verified for audit review distribution.";
+}
+function sendPrivateMessage() {
+  const target = document.getElementById('commUser')?.value;
+  const msg = document.getElementById('commMessage')?.value.trim();
+  if(!target || !msg) return alert('Specify recipient address node and content blocks.');
+  
+  const log = document.getElementById('commLog');
+  const record = document.createElement('div');
+  record.className = "p-1 bg-slate-50 border border-slate-100 rounded text-[11px] font-sans text-slate-700";
+  record.innerHTML = `<b class="text-blue-900">[To ${escapeHtml(target)}]:</b> ${escapeHtml(msg)}`;
+  log?.prepend(record);
+  document.getElementById('commMessage').value = "";
+}
+function sendSupportQuestion() {
+  const inputEl = document.getElementById('supportQuestion');
+  const question = inputEl?.value.trim();
+  if(!question) return;
+  const box = document.getElementById('supportMessages');
+  if(!box) return;
+  
+  const userDiv = document.createElement('div');
+  userDiv.className = "p-2 my-1 bg-blue-100 text-blue-900 rounded-lg text-right ml-12 text-xs font-sans";
+  userDiv.textContent = question;
+  box.appendChild(userDiv);
+  
+  const qLower = question.toLowerCase();
+  let responseText = "I'm analyzing your request across the Acacia Sales Hub framework. Could you specify if this relates to Invoices, Quotes, Receipts, or Customer Statements?";
+
+  if (qLower.includes("invoice") || qLower.includes("invoicing") || qLower.includes("bulk")) {
+    if (qLower.includes("bulk")) {
+      responseText = "🤖 [Bulk Invoicing] To execute a bulk run, click 'Bulk Invoicing' on the sidebar, select your target client segment, upload your batch file or template, and hit 'Execute Batch Invoices'.";
+    } else {
+      responseText = "🤖 [Invoices] Navigate to the 'Invoices' ledger tab and click '+ Issue New'. Fill in the items, tax rates, and click 'Save & Post' to generate the ledger entry.";
+    }
+  } else if (qLower.includes("customer") || qLower.includes("client")) {
+    responseText = "🤖 [Customers Registry] To add a client, select 'Customers' on the left menu, click the blue '+ Issue New' button, and log their Company Name, Contact details, and Tax/KRA PIN.";
+  } else if (qLower.includes("quote") || qLower.includes("quotation")) {
+    responseText = "🤖 [Quotes] Go to the 'Quotes' module. You can convert an approved quotation directly into a live order or sales invoice using the actions menu next to the log entry.";
+  } else if (qLower.includes("order")) {
+    responseText = "🤖 [Orders] The Orders partition tracks active commitments. Once an order is ready for dispatch, you can instantly clear it to trigger a Delivery log or Invoice.";
+  } else if (qLower.includes("credit note") || qLower.includes("return")) {
+    if (qLower.includes("return")) {
+      responseText = "🤖 [Sales Returns] Record inventory rollbacks under 'Sales Returns'. If an adjustment to a posted ledger item is needed, issue a corresponding 'Credit Note'.";
+    } else {
+      responseText = "🤖 [Credit Notes] Select 'Credit Notes' from the sidebar pipeline to issue system adjustments against historically posted or overpaid sales invoices.";
+    }
+  } else if (qLower.includes("receipt") || qLower.includes("payment")) {
+    responseText = "🤖 [Receipts] Log payments against outstanding invoices inside the 'Receipts' module. This matches open cash inflows against debtor customer records.";
+  } else if (qLower.includes("recurring")) {
+    responseText = "🤖 [Recurring Invoices] Set up automated billing profile schedules (e.g., monthly retainers) inside the 'Recurring Invoices' controller.";
+  } else if (qLower.includes("delivery") || qLower.includes("dispatch")) {
+    responseText = "🤖 [Delivery] Open the 'Delivery' tab to generate tracking manifests, coordinate logistics dispatches, and verify client handoffs.";
+  } else if (qLower.includes("statement") || qLower.includes("outstanding") || qLower.includes("report")) {
+    responseText = "🤖 [Statements] Select 'Statement' from the sidebar to look up individual customer accounts, view complete balance aging summaries, or export financial ledgers.";
+  }
+  
+  const aiDiv = document.createElement('div');
+  aiDiv.className = "p-2 my-1 bg-gray-50 text-gray-800 border border-gray-200 rounded-lg mr-12 text-xs font-sans whitespace-pre-line";
+  aiDiv.textContent = responseText;
+  box.appendChild(aiDiv);
+  
+  inputEl.value = "";
+  box.scrollTop = box.scrollHeight;
+}
+function toggleTawkChat() { alert('Launching live chat environment integration links...'); }
+
 function boot(){
   const u=currentUser(); if(!u){authScreen.classList.remove('hidden');app.classList.add('hidden');app.classList.remove('flex');return}
   authScreen.classList.add('hidden');app.classList.remove('hidden');app.classList.add('flex');
   userAvatar.textContent=initials(u.companyName||u.name||u.email);userAvatar.title=(u.companyName||'')+' · '+(u.email||'');
+  
+  document.getElementById('rightSidebar')?.classList.remove('hidden');
+  
   pullAll();
 }
 boot();
