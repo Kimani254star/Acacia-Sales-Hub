@@ -71,10 +71,24 @@
 
 <div id="app" class="hidden flex-col h-screen">
   <header class="flex items-center justify-between px-3 py-1 h-14 bg-white border-b border-slate-200 shrink-0">
-    <div class="flex items-center gap-2">
-      <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-acacia-500 to-acacia-700 flex items-center justify-center text-white font-bold">👥</div>
-      <div class="leading-tight"><div class="font-bold text-acacia-800">Acacia Sales Hub</div>
-      <div class="text-[10px] uppercase tracking-wider text-slate-400 flex items-center gap-1">Sales Management · <span id="syncDot" class="inline-block w-2 h-2 rounded-full bg-slate-300"></span> <span id="syncStatus">idle</span></div></div>
+    <div class="flex items-center gap-3">
+    
+      <div class="flex items-center gap-2 pr-3 border-r border-slate-200">
+        <img src="acaciabooks-logo.png" alt="Logo" class="h-8 w-auto object-contain" />
+        <div class="font-bold text-[10px] text-slate-700 tracking-wide uppercase leading-tight">
+          Spear Tech<br>dvlp
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-acacia-500 to-acacia-700 flex items-center justify-center text-white font-bold text-sm"></div>
+        <div class="leading-tight">
+          <div class="font-bold text-acacia-800">Acacia Sales Hub</div>
+          <div class="text-[10px] uppercase tracking-wider text-slate-400 flex items-center gap-1">
+            Sales Management · <span id="syncDot" class="inline-block w-2 h-2 rounded-full bg-slate-300"></span> <span id="syncStatus">idle</span>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="flex items-center gap-2">
       <button onclick="openMail()" class="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium text-slate-600">✉️ Compose</button>
