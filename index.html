@@ -5,8 +5,341 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Acacia Sell</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
 </head>
 <body>
+
+<div id="homePage">
+
+<header class="hp-header">
+<a href="#top" class="hp-logo" data-scroll>
+<div class="hp-logo-mark"><i class="fa-solid fa-cart-shopping"></i></div>
+<div>
+<h2>Acacia Sell</h2>
+<span>Quotes to payment</span>
+</div>
+</a>
+<nav class="hp-nav" id="hpNav" aria-label="Main">
+<ul><li><a href="#top" data-scroll>Home</a></li><li><a href="#about" data-scroll>About</a></li><li><a href="#features" data-scroll>Features</a></li><li><a href="#process" data-scroll>How it works</a></li><li><a href="#pricing" data-scroll>Pricing</a></li><li><a href="#faq" data-scroll>FAQ</a></li><li><a href="#contact" data-scroll>Contact</a></li></ul>
+</nav>
+<div class="hp-actions">
+<button type="button" class="hp-theme" onclick="hpTheme()" aria-label="Toggle dark mode" title="Toggle dark mode"><i class="fa-solid fa-moon hp-moon"></i><i class="fa-solid fa-sun hp-sun"></i></button>
+<button type="button" class="hp-signin" onclick="hpShowLogin('login')">Log in</button>
+<a href="#register" class="hp-getstarted" onclick="hpShowLogin('register');return false;">Create account</a>
+<button type="button" class="hp-burger" id="hpBurger" aria-label="Open menu" aria-expanded="false"><i class="fa-solid fa-bars"></i></button>
+</div>
+</header>
+
+<section class="hp-hero hp-page" data-page="top">
+<div class="hp-slides" aria-hidden="true">
+      <div class="hp-slide active" style="background-image:url('https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1920&q=80');"></div>
+      <div class="hp-slide" style="background-image:url('https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1920&q=80');"></div>
+      <div class="hp-slide" style="background-image:url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1920&q=80');"></div>
+    </div>
+<div class="hp-left">
+<div class="hp-badge"><i class="fa-solid fa-cart-shopping"></i> Customers, quotes, orders, invoices and payments in one place.</div>
+<h1>From quote to payment, in one flow.</h1>
+<p>Acacia Sell helps your team manage customers and products, send quotes, turn them into orders and invoices, and record the payments that come in.</p>
+<p>Log in to your account, or create one for your company and add your first customer.</p>
+<div class="hp-hero-btns">
+<a href="#register" class="hp-primary" onclick="hpShowLogin('register');return false;">Create your account</a>
+<a href="#login" class="hp-secondary" onclick="hpShowLogin('login');return false;">Log in</a>
+</div>
+</div>
+<div class="hp-right">
+<div class="hp-preview">
+<h2>What's inside</h2>
+<div class="hp-item"><span>Customers</span><strong>Your customer list</strong></div><div class="hp-item"><span>Quotes &amp; orders</span><strong>Quote to sales order</strong></div><div class="hp-item"><span>Invoices</span><strong>Bill and get paid</strong></div><div class="hp-item"><span>Reports</span><strong>Sales at a glance</strong></div>
+</div>
+<div class="hp-float hp-float1"><i class="fa-solid fa-file-invoice"></i> Invoices</div><div class="hp-float hp-float2"><i class="fa-solid fa-money-bill-wave"></i> Payments</div>
+</div>
+</section>
+
+<section class="hp-section hp-page" id="hp-about" data-page="about">
+<div class="hp-two">
+<div class="hp-text">
+<div class="hp-title left">
+<span>About Acacia Sell</span>
+<h2>Every sale, from first quote to final payment.</h2>
+</div>
+<p>Acacia Sell keeps your customers, products and sales documents together, so you can follow a sale from the first quote to the payment.</p><p>A quote becomes a sales order, a sales order becomes an invoice, and payments are recorded against the invoice, so you always know who has paid.</p><p>Sales returns and reports complete the picture.</p>
+<div class="hp-actions-row">
+<a href="#register" class="hp-btn" onclick="hpShowLogin('register');return false;">Create your account <i class="fa-solid fa-arrow-right"></i></a>
+<button type="button" class="hp-btn ghost" onclick="hpShowLogin('login')">Log in</button>
+</div>
+</div>
+<div>
+<div class="hp-stats"><div class="hp-stat"><h4>Connected</h4><p>Customers, products and sales together</p></div><div class="hp-stat"><h4>Followed</h4><p>Quote, order, invoice, payment</p></div><div class="hp-stat"><h4>Recorded</h4><p>Payments and sales returns</p></div><div class="hp-stat"><h4>Measured</h4><p>A dashboard and reports</p></div></div>
+<div class="hp-quote">
+<i class="fa-solid fa-quote-left"></i>
+<p>Manage customers, quotes, orders, invoices and payments in one place.</p>
+</div>
+</div>
+</div>
+</section>
+
+<section class="hp-section-alt hp-page" id="hp-features" data-page="features">
+<div class="hp-title">
+<span>What you get</span>
+<h2>Everything a sales team needs to close and collect</h2>
+<p>Six areas that take a sale from quote to cash.</p>
+</div>
+<div class="hp-grid3"><div class="hp-card"><div class="hp-icon"><i class="fa-solid fa-users"></i></div><h3>Customers</h3><p>Keep every customer in one list, so anyone on the team can find them.</p></div><div class="hp-card"><div class="hp-icon"><i class="fa-solid fa-box"></i></div><h3>Products</h3><p>Keep a product list with prices, ready to add to quotes and invoices.</p></div><div class="hp-card"><div class="hp-icon"><i class="fa-solid fa-file-lines"></i></div><h3>Quotes &amp; sales orders</h3><p>Send a quote, then turn it into a sales order when the customer agrees.</p></div><div class="hp-card"><div class="hp-icon"><i class="fa-solid fa-file-invoice"></i></div><h3>Invoices</h3><p>Bill your customers and see which invoices are open.</p></div><div class="hp-card"><div class="hp-icon"><i class="fa-solid fa-money-bill-wave"></i></div><h3>Payments &amp; returns</h3><p>Record payments against invoices and handle sales returns.</p></div><div class="hp-card"><div class="hp-icon"><i class="fa-solid fa-chart-pie"></i></div><h3>Dashboard &amp; reports</h3><p>See your sales at a glance and use reports to understand them.</p></div></div>
+</section>
+
+<section class="hp-section hp-page" id="hp-process" data-page="process">
+<div class="hp-title">
+<span>How it works</span>
+<h2>From quote to cash</h2>
+<p>Three steps, and the sale is done.</p>
+</div>
+<div class="hp-steps"><div class="hp-step"><div class="hp-num">1</div><h3>Create your account</h3><p>Enter your company name, your name, your email address and a password. You start with a blank account, ready for your own sales.</p></div><div class="hp-step"><div class="hp-num">2</div><h3>Add customers and products</h3><p>Build your customer list and your products so quotes and invoices are quick to make.</p></div><div class="hp-step"><div class="hp-num">3</div><h3>Quote, invoice and collect</h3><p>Send a quote, turn it into an order and an invoice, and record the payment when it arrives.</p></div></div>
+</section>
+
+<section class="hp-section-alt hp-page" id="hp-pricing" data-page="pricing">
+    <div class="hp-title">
+      <span>Pricing</span>
+      <h2>Pricing that grows with the business</h2>
+      <p>Start on Free, move up a tier the moment you need it &mdash; every plan shares the same data, so nothing gets re-entered.</p>
+    </div>
+    <div class="hp-billing">
+      <span>Monthly</span>
+      <label class="hp-switch"><input type="checkbox" id="hpBilling" onchange="hpBillingToggle()" aria-label="Bill yearly"><i></i></label>
+      <span>Yearly <em>(2 months free)</em></span>
+    </div>
+    <div class="hp-tiers6">
+      <div class="hp-tier">
+        <h3>Free</h3>
+        <div class="hp-tag">Start your business</div>
+        <div class="hp-price"><span class="hp-amt" data-month="0" data-year="0">KES 0</span><small class="hp-per">/mo</small></div>
+        <ul class="hp-feats">
+          <li>📦 Inventory &amp; Stock Movements</li>
+          <li>👥 Customers, Invoices &amp; Receipts</li>
+          <li>🚚 Suppliers &amp; Supplier Payments</li>
+          <li>🧾 Operational Costs</li>
+          <li>🧮 Manual Journals &amp; Chart of Accounts</li>
+          <li class="hp-extra">🏦 Current Accounts</li>
+          <li class="hp-extra">💵 Employees, Earnings &amp; Attendance</li>
+          <li class="hp-extra">📁 Files &amp; Recycle Bin</li>
+          <li class="hp-extra">⚙️ Org Profile, Preferences, Users</li>
+          <li class="hp-extra">📬 Acacia Mail included free</li>
+          <li class="hp-extra">📏 1 user · 100 products · 100 customers · 25 invoices/mo · 1 warehouse · 100 MB</li>
+        </ul>
+        <button type="button" class="hp-more" onclick="hpMore(this)" data-n="6">Show 6 more features &#9662;</button>
+        <a href="https://acacia-books.vercel.app/" target="_blank" rel="noopener" class="hp-tier-btn">Get Started</a>
+      </div>
+      <div class="hp-tier">
+        <h3>Starter</h3>
+        <div class="hp-tag">Run your daily operations</div>
+        <div class="hp-price"><span class="hp-amt" data-month="1500" data-year="15000">KES 1,500</span><small class="hp-per">/mo</small></div>
+        <ul class="hp-feats">
+          <li><strong>Everything in Free, plus:</strong></li>
+          <li>🧾 Quotes &amp; Delivery</li>
+          <li>📄 Customer &amp; Supplier Statements</li>
+          <li>📥 GRN &amp; Supplier Bills</li>
+          <li>🏬 Warehouses, Shipments &amp; Price Lists</li>
+          <li class="hp-extra">🧮 VAT &amp; Transaction Locking</li>
+          <li class="hp-extra">🔗 Integrations &amp; Settings Templates</li>
+          <li class="hp-extra">🗂️ Subscription Plans tracking</li>
+          <li class="hp-extra">📏 3 users · 1,000 products · 500 customers · 200 invoices/mo · 2 warehouses · 1 GB</li>
+        </ul>
+        <button type="button" class="hp-more" onclick="hpMore(this)" data-n="4">Show 4 more features &#9662;</button>
+        <a href="https://acacia-books.vercel.app/" target="_blank" rel="noopener" class="hp-tier-btn">Choose</a>
+      </div>
+      <div class="hp-tier featured">
+        <div class="hp-pop">Most popular</div>
+        <h3>Pro</h3>
+        <div class="hp-tag">Run your complete business</div>
+        <div class="hp-price"><span class="hp-amt" data-month="3500" data-year="35000">KES 3,500</span><small class="hp-per">/mo</small></div>
+        <ul class="hp-feats">
+          <li><strong>Everything in Starter, plus:</strong></li>
+          <li>🧾 Sales Orders &amp; Purchase Orders</li>
+          <li>↩️ Credit Notes, Debit Notes &amp; Returns</li>
+          <li>📦 Inventory Costing</li>
+          <li>🧮 Recurring Journals &amp; Currency Adjustments</li>
+          <li class="hp-extra">📊 Budgets</li>
+          <li class="hp-extra">💵 Gross Pay &amp; Payslips</li>
+          <li class="hp-extra">🗂️ Projects</li>
+          <li class="hp-extra">📏 10 users · 5,000 products · 2,500 customers · 1,000 invoices/mo · 5 warehouses · 5 GB</li>
+        </ul>
+        <button type="button" class="hp-more" onclick="hpMore(this)" data-n="4">Show 4 more features &#9662;</button>
+        <a href="https://acacia-books.vercel.app/" target="_blank" rel="noopener" class="hp-tier-btn">Choose</a>
+      </div>
+      <div class="hp-tier">
+        <h3>Business</h3>
+        <div class="hp-tag">Automate and scale</div>
+        <div class="hp-price"><span class="hp-amt" data-month="7500" data-year="75000">KES 7,500</span><small class="hp-per">/mo</small></div>
+        <ul class="hp-feats">
+          <li><strong>Everything in Pro, plus:</strong></li>
+          <li>⚡ Bulk &amp; Recurring Invoices</li>
+          <li>⚡ Bulk Billing &amp; Bulk Costing</li>
+          <li>🧮 Tax Payments &amp; Tax Adjustments</li>
+          <li>🏛️ Non-Current Assets, Liabilities &amp; Equity</li>
+          <li class="hp-extra">💵 Statutory Deductions &amp; Payroll Reports</li>
+          <li class="hp-extra">📈 Project Revenue</li>
+          <li class="hp-extra">⚙️ System Configuration &amp; Integrations Hub</li>
+          <li class="hp-extra">🔍 User Activity</li>
+          <li class="hp-extra">📏 25 users · 25,000 products · 10,000 customers · 5,000 invoices/mo · 15 warehouses · 25 GB</li>
+        </ul>
+        <button type="button" class="hp-more" onclick="hpMore(this)" data-n="5">Show 5 more features &#9662;</button>
+        <a href="https://acacia-books.vercel.app/" target="_blank" rel="noopener" class="hp-tier-btn">Choose</a>
+      </div>
+      <div class="hp-tier">
+        <h3>Enterprise</h3>
+        <div class="hp-tag">Control your organization</div>
+        <div class="hp-price hp-custom">Custom</div>
+        <ul class="hp-feats">
+          <li><strong>Everything in Business, plus:</strong></li>
+          <li>👥 Custom user limits</li>
+          <li>💾 Custom storage</li>
+          <li>🔢 Custom transaction limits</li>
+          <li>🛡️ Advanced administration &amp; controls</li>
+          <li class="hp-extra">📈 Advanced reporting</li>
+          <li class="hp-extra">🔗 Enterprise integrations</li>
+          <li class="hp-extra">⚙️ Dedicated configuration</li>
+          <li class="hp-extra">🤝 Custom support arrangements</li>
+        </ul>
+        <button type="button" class="hp-more" onclick="hpMore(this)" data-n="4">Show 4 more features &#9662;</button>
+        <a href="#contact" data-scroll class="hp-tier-btn">Talk to Sales</a>
+      </div>
+      <div class="hp-tier">
+        <h3>All Access</h3>
+        <div class="hp-tag">Everything Acacia</div>
+        <div class="hp-price"><span class="hp-amt" data-month="15000" data-year="150000">KES 15,000</span><small class="hp-per">/mo</small></div>
+        <ul class="hp-feats">
+          <li><strong>Everything in Acacia Books, plus:</strong></li>
+          <li>📬 Acacia Mail</li>
+          <li>🤝 Acacia Books CRM</li>
+          <li>🗂️ Acacia Projects</li>
+          <li>💵 Acacia Payroll</li>
+          <li class="hp-extra">🛒 Acacia Sell</li>
+          <li class="hp-extra">✅ No separate companion-app subscriptions</li>
+          <li class="hp-extra">📏 Enterprise-level or custom limits</li>
+        </ul>
+        <button type="button" class="hp-more" onclick="hpMore(this)" data-n="3">Show 3 more features &#9662;</button>
+        <a href="https://acacia-books.vercel.app/" target="_blank" rel="noopener" class="hp-tier-btn">Choose</a>
+      </div>
+    </div>
+
+    <div class="hp-subhead"><h3>Companion apps</h3><p>Add them to any plan, or get them all with All Access.</p></div>
+    <div class="hp-tablewrap">
+      <table class="hp-table">
+        <thead><tr><th>Companion App</th><th>Add-on price</th><th>All Access</th></tr></thead>
+        <tbody>
+          <tr><td>&#128236; Acacia Mail</td><td>Free</td><td class="hp-yes">&#10003; Included</td></tr>
+          <tr><td>&#129309; Acacia Books CRM</td><td>KES 1,200/month</td><td class="hp-yes">&#10003; Included</td></tr>
+          <tr><td>&#128194; Acacia Projects</td><td>KES 1,500/month</td><td class="hp-yes">&#10003; Included</td></tr>
+          <tr><td>&#128181; Acacia Payroll</td><td>KES 2,000/month</td><td class="hp-yes">&#10003; Included</td></tr>
+          <tr><td>&#128722; Acacia Sell</td><td>KES 2,500/month</td><td class="hp-yes">&#10003; Included</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="hp-subhead"><h3>Usage limits</h3><p>Every plan shares the same data &mdash; only the ceilings change.</p></div>
+    <div class="hp-tablewrap">
+      <table class="hp-table hp-limits">
+        <thead><tr><th>Limit</th><th>Free</th><th>Starter</th><th>Pro</th><th>Business</th><th>Enterprise</th></tr></thead>
+        <tbody>
+          <tr><th>Users</th><td>1</td><td>3</td><td>10</td><td>25</td><td>Custom</td></tr>
+          <tr><th>Warehouses</th><td>1</td><td>2</td><td>5</td><td>15</td><td>Custom</td></tr>
+          <tr><th>Customers</th><td>100</td><td>500</td><td>2,500</td><td>10,000</td><td>Custom</td></tr>
+          <tr><th>Suppliers</th><td>50</td><td>250</td><td>1,000</td><td>5,000</td><td>Custom</td></tr>
+          <tr><th>Products</th><td>100</td><td>1,000</td><td>5,000</td><td>25,000</td><td>Custom</td></tr>
+          <tr><th>Invoices / month</th><td>25</td><td>200</td><td>1,000</td><td>5,000</td><td>Custom</td></tr>
+          <tr><th>Bills / month</th><td>25</td><td>200</td><td>1,000</td><td>5,000</td><td>Custom</td></tr>
+          <tr><th>Projects</th><td>0</td><td>0</td><td>10</td><td>50</td><td>Custom</td></tr>
+          <tr><th>Payroll employees</th><td>5</td><td>25</td><td>100</td><td>500</td><td>Custom</td></tr>
+          <tr><th>File storage</th><td>100 MB</td><td>1 GB</td><td>5 GB</td><td>25 GB</td><td>Custom</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+<section class="hp-section hp-page" id="hp-faq" data-page="faq">
+<div class="hp-title">
+<span>Good questions</span>
+<h2>Frequently asked questions</h2>
+<p>A few quick answers before you sign up.</p>
+</div>
+<div class="hp-faq"><details open><summary>How do I create an account?</summary><p>Choose Create account and enter your company name, your name, your email address and a password of at least 6 characters.</p></details><details><summary>Can I turn a quote into an order?</summary><p>Yes. Quotes move on to sales orders, and sales orders to invoices.</p></details><details><summary>Can I record payments?</summary><p>Yes. Payments are recorded against invoices so you can see what is still owed.</p></details><details><summary>Can I handle returns?</summary><p>Yes. There is a Sales Returns area for goods that come back.</p></details><details><summary>Is my data kept per company?</summary><p>Yes. Each company has its own separate data, and everyone in that company sees the same records.</p></details></div>
+</section>
+
+<section class="hp-section-alt hp-page" id="hp-contact" data-page="contact">
+<div class="hp-two">
+<div class="hp-text">
+<div class="hp-title left">
+<span>Get in touch</span>
+<h2>Questions about Acacia Sell?</h2>
+</div>
+<p>Send a message and we'll reply by email.</p>
+<div class="hp-contact-list">
+<div><i class="fa-solid fa-envelope"></i> <a href="mailto:hello@example.com">hello@example.com</a></div>
+</div>
+</div>
+<div class="hp-form-card">
+<form class="hp-form" onsubmit="return hpContact(event)">
+<label>Your name<input id="hpName" required autocomplete="name"></label>
+<label>Email address<input id="hpEmail" type="email" required autocomplete="email"></label>
+<label>Your message<textarea id="hpMsg" required rows="4"></textarea></label>
+<button type="submit" class="hp-btn">Send message <i class="fa-solid fa-paper-plane"></i></button>
+<p id="contactConfirm" class="hidden">Your email app should open with the message ready to send.</p>
+</form>
+</div>
+</div>
+</section>
+
+<section class="hp-cta hp-page" data-page="top">
+<div class="hp-ctabox">
+<div>
+<h2>Ready to organise your sales?</h2>
+<p>Create your company account, or log in and pick up where you left off.</p>
+<div class="hp-cta-btns">
+<a href="#register" class="hp-cta-primary" onclick="hpShowLogin('register');return false;">Create your account</a>
+<button type="button" class="hp-cta-secondary" onclick="hpShowLogin('login')">Log in</button>
+</div>
+</div>
+<div class="hp-cta-card">
+<h3>What you get</h3>
+<div class="hp-cta-item"><span>Sell</span><strong>Customers / Products / Quotes</strong></div><div class="hp-cta-item"><span>Bill</span><strong>Orders / Invoices</strong></div><div class="hp-cta-item"><span>Collect</span><strong>Payments / Reports</strong></div>
+</div>
+</div>
+</section>
+
+<footer class="hp-footer">
+<div class="hp-footgrid">
+<div class="hp-footlogo">
+<h2>Acacia Sell</h2>
+<p>Manage customers, quotes, orders, invoices and payments in one place.</p>
+</div>
+<div class="hp-footcol">
+<h3>Explore</h3>
+<ul>
+<li><a href="#about" data-scroll>About</a></li>
+<li><a href="#features" data-scroll>Features</a></li>
+<li><a href="#pricing" data-scroll>Pricing</a></li>
+</ul>
+</div>
+<div class="hp-footcol">
+<h3>Account</h3>
+<ul>
+<li><a href="#faq" data-scroll>FAQ</a></li>
+<li><button type="button" onclick="hpShowLogin('login')">Log in</button></li>
+<li><button type="button" onclick="hpShowLogin('register')">Create account</button></li>
+</ul>
+</div>
+<div class="hp-footcol">
+<h3>Contact</h3>
+<ul>
+<li><a href="mailto:hello@example.com"><i class="fa-solid fa-envelope" style="font-size:12px;margin-right:4px;"></i> hello@example.com</a></li>
+</ul>
+</div>
+</div>
+<div class="hp-bottom">
+<span>&copy; <span id="footerYear"></span> Acacia Sell.</span>
+</div>
+</footer>
+</div>
+<!-- ============ END PUBLIC HOME PAGE ============ -->
 
 <div id="authScreen">
   <div class="auth-wrap">
@@ -32,6 +365,7 @@
       <div class="foot">Your data is stored locally in this browser.</div>
     </div>
     <div class="auth-form-panel">
+      <a class="auth-back" onclick="hpShowHome()">&larr; Back to site</a>
       <div class="auth-tabs">
         <div class="auth-tab active" id="tabLoginBtn" onclick="switchAuthTab('login')">Log In</div>
         <div class="auth-tab" id="tabRegisterBtn" onclick="switchAuthTab('register')">Create Account</div>
