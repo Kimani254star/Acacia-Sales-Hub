@@ -144,7 +144,7 @@ function hpContact(e){
 
   async function register(o) {
     var salt = newSalt(), h = await hash(o.password, salt);
-    var id = await rpc('acx_register_company', { p_company: o.company, p_name: o.name, p_email: low(o.email), p_hash: h, p_salt: salt, p_app: cfg.app });
+    var id = await rpc('acx_register_company', { p_company: o.company, p_name: o.name, p_email: low(o.email), p_hash: h, p_salt: salt, p_app: cfg.app, p_plan: o.plan || '', p_billing: o.billing || 'monthly' });
     var blocked = await gate(id, o.email);
     return { companyId: id, passwordHash: h, passwordSalt: salt, blocked: blocked };
   }
@@ -264,6 +264,16 @@ function hpContact(e){
     document.addEventListener('visibilitychange', function () { if (document.hidden) flush(); });
   }
 
+  /* sign-up plan note: reads #regPlan / #regBilling and shows what the company will pay */
+  w.acxPlanChanged = function () {
+    var s = document.getElementById('regPlan'), b = document.getElementById('regBilling'), n = document.getElementById('regPlanNote');
+    if (!s || !n) return;
+    var o = s.options[s.selectedIndex], p = Number((o && o.getAttribute('data-price')) || 0), y = !!b && b.value === 'yearly';
+    var f = function (x) { return 'KES ' + x.toLocaleString('en-US'); };
+    n.textContent = y ? f(p * 10) + ' for the year (2 months free). Billed after Acacia support approves your account.' : f(p) + ' per month. Billed after Acacia support approves your account.';
+  };
+  setTimeout(function () { try { if (w.acxPlanChanged) w.acxPlanChanged(); } catch (e) {} }, 0);
+
   w.AcaciaCloud = { init: init, signIn: signIn, register: register, addUser: addUser, setRole: setRole, removeUser: removeUser, cacheUser: cacheUser, verifyLocal: verifyLocal, migrate: migrate, start: start, stop: stop, flush: flush, isCloudId: isCloudId, gate: gate, URL: URL_, KEY: KEY_, rpc: rpc, req: req };
 })(window);
 ;
@@ -344,7 +354,7 @@ async function handleRegister(){
   const users = getUsers();
   let user, viaCloud = false;
   try{
-    const c = await AcaciaCloud.register({company, name, email, password});
+    const c = await AcaciaCloud.register({company, name, email, password, plan:(document.getElementById('regPlan')||{}).value||'', billing:(document.getElementById('regBilling')||{}).value||'monthly'});
     if(c.blocked){ showAuthError('registerError','Account created. ' + c.blocked); return; }
     user = {companyId:c.companyId, company, name, email, role:'Administrator', passwordHash:c.passwordHash, passwordSalt:c.passwordSalt};
     viaCloud = true;
@@ -550,13 +560,20 @@ function prodName(id){ const p = DB.products.find(p=>p.id===id); return p? p.nam
 ===================================================================== */
 const NAV = [
   {key:'dashboard', label:'Dashboard', icon:'&#9632;'},
-  {key:'customers', label:'Customers', icon:'&#9679;'},
-  {key:'products', label:'Products', icon:'&#9635;'},
-  {key:'quotes', label:'Quotes', icon:'&#9998;'},
-  {key:'orders', label:'Sales Orders', icon:'&#128230;'},
+  {sec:'Sales Hub'},
+  {key:'customers', label:'Customer', icon:'&#9679;'},
   {key:'invoices', label:'Invoices', icon:'&#128196;'},
-  {key:'payments', label:'Payments', icon:'&#128176;'},
+  {key:'quotes', label:'Quotes', icon:'&#9998;'},
+  {key:'orders', label:'Orders', icon:'&#128230;'},
+  {key:'bulkinv', label:'Bulk Invoicing', icon:'&#128209;'},
+  {key:'creditnotes', label:'Credit Notes', icon:'&#128221;'},
   {key:'returns', label:'Sales Returns', icon:'&#8630;'},
+  {key:'payments', label:'Receipts', icon:'&#128176;'},
+  {key:'recurring', label:'Recurring Invoices', icon:'&#128257;'},
+  {key:'delivery', label:'Delivery', icon:'&#128666;'},
+  {key:'statement', label:'Statement', icon:'&#128195;'},
+  {sec:'More'},
+  {key:'products', label:'Products', icon:'&#9635;'},
   {key:'reports', label:'Reports', icon:'&#128202;'},
   {key:'settings', label:'Settings', icon:'&#9881;'}
 ];
@@ -565,7 +582,7 @@ let pageState = {}; // per-page filters (tab, search)
 
 function renderNav(){
   const el = document.getElementById('navList');
-  el.innerHTML = NAV.map(n => `
+  el.innerHTML = NAV.map(n => n.sec ? `<div class="nav-sec" style="padding:10px 16px 4px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.6">${n.sec}</div>` : `
     <div class="nav-item ${currentPage===n.key?'active':''}" onclick="goTo('${n.key}')">
       <span class="icon">${n.icon}</span><span>${n.label}</span>
     </div>`).join('');
@@ -579,6 +596,7 @@ function goTo(key){
   window.scrollTo(0,0);
 }
 function renderPage(){
+  DB.creditNotes=DB.creditNotes||[]; DB.recurring=DB.recurring||[]; DB.seq.cn=DB.seq.cn||0; DB.seq.rec=DB.seq.rec||0;
   saveCompanyData();
   const c = document.getElementById('content');
   const renderers = {
@@ -589,11 +607,12 @@ function renderPage(){
     orders: renderOrders,
     invoices: renderInvoices,
     payments: renderPayments,
-    returns: renderReturns,
+    returns: renderReturns, bulkinv: renderBulkInv, creditnotes: renderCreditNotes, recurring: renderRecurring, delivery: renderDelivery, statement: renderStatement,
     reports: renderReports,
     settings: renderSettings
   };
   c.innerHTML = (renderers[currentPage] || renderDashboard)();
+  enhanceTables();
 }
 
 /* =====================================================================
@@ -1075,7 +1094,7 @@ function renderOrders(){
   const rows = DB.orders.filter(o=> tab==='All' || o.status===tab);
   return `
     <div class="page-head">
-      <div><div class="page-title">Sales Orders</div><div class="page-sub">Track orders through fulfilment to invoicing</div></div>
+      <div><div class="page-title">Orders</div><div class="page-sub">Track orders through fulfilment to invoicing</div></div>
     </div>
     <div class="card">
       <div class="tabbar">
@@ -1341,7 +1360,7 @@ function renderPayments(){
   const total = DB.payments.reduce((s,p)=>s+p.amount,0);
   return `
     <div class="page-head">
-      <div><div class="page-title">Payments</div><div class="page-sub">${DB.payments.length} payments · ${fmt(total)} received in total</div></div>
+      <div><div class="page-title">Receipts</div><div class="page-sub">${DB.payments.length} payments · ${fmt(total)} received in total</div></div>
     </div>
     <div class="card">
       <div class="toolbar">
@@ -1604,3 +1623,138 @@ document.getElementById('globalSearch').addEventListener('keydown', (e)=>{
 
 /* ---------- Boot ---------- */
 document.addEventListener('DOMContentLoaded', checkSessionOnLoad);
+
+
+/* ===== Sales Hub pages matching Books: Bulk Invoicing, Credit Notes, Recurring Invoices, Delivery, Statement ===== */
+const head=(t,sub,act)=>`<div class="page-head"><div><div class="page-title">${t}</div><div class="page-sub">${sub}</div></div>${act||''}</div>`;
+const custOpts=()=>'<option value="">Select customer</option>'+DB.customers.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+const invOpts=()=>'<option value="">Select invoice</option>'+DB.invoices.filter(i=>i.total-i.paid>0).map(i=>`<option value="${i.id}">${i.id} · ${custName(i.custId)} · due ${fmt(i.total-i.paid)}</option>`).join('');
+const gid=id=>document.getElementById(id);
+
+function renderBulkInv(){
+  const open=DB.orders.filter(o=>!o.converted.invoice&&o.status!=='Cancelled');
+  return head('Bulk Invoicing','Turn several open orders into invoices at once',`<div class="page-actions"><button class="btn btn-primary" onclick="runBulkInv()">Invoice Selected</button></div>`)+`
+  <div class="card"><div class="card-body flush table-scroll"><table><thead><tr><th><input type="checkbox" onclick="document.querySelectorAll('.bi-chk').forEach(c=>c.checked=this.checked)"></th><th>Order</th><th>Customer</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>
+  ${open.map(o=>`<tr><td><input type="checkbox" class="bi-chk" value="${o.id}"></td><td>${o.id}</td><td>${custName(o.custId)}</td><td>${statusPill(o.status)}</td><td class="num">${fmt(computeTotals(o.lines).grand)}</td></tr>`).join('')||'<tr class="empty-row"><td colspan="5">No uninvoiced orders.</td></tr>'}
+  </tbody></table></div></div>`;
+}
+function runBulkInv(){
+  const ids=[...document.querySelectorAll('.bi-chk:checked')].map(c=>c.value);
+  if(!ids.length) return toast('Select at least one order.');
+  ids.forEach(id=>convertOrderToInvoice(id,{silent:true}));
+  toast(ids.length+' invoice(s) created.'); renderPage();
+}
+
+function renderCreditNotes(){
+  return head('Credit Notes','Reduce what a customer owes on an invoice')+`
+  <div class="card"><div class="card-body"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+    <select id="cnInv">${invOpts()}</select><input id="cnAmt" type="number" min="0" placeholder="Amount"><input id="cnReason" placeholder="Reason">
+    <button class="btn btn-primary" onclick="saveCreditNote()">Issue Credit Note</button></div></div></div>
+  <div class="card" style="margin-top:16px"><div class="card-body flush table-scroll"><table><thead><tr><th>Credit Note</th><th>Customer</th><th>Invoice</th><th>Date</th><th>Reason</th><th class="num">Amount</th></tr></thead><tbody>
+  ${DB.creditNotes.map(n=>`<tr><td>${n.id}</td><td>${custName(n.custId)}</td><td>${n.invoiceId}</td><td>${n.date}</td><td>${n.reason||'—'}</td><td class="num">${fmt(n.amount)}</td></tr>`).join('')||'<tr class="empty-row"><td colspan="6">No credit notes issued.</td></tr>'}
+  </tbody></table></div></div>`;
+}
+function saveCreditNote(){
+  const inv=DB.invoices.find(i=>i.id===gid('cnInv').value), amt=parseFloat(gid('cnAmt').value);
+  if(!inv||!(amt>0)) return toast('Select an invoice and enter an amount.');
+  const a=Math.min(amt,inv.total-inv.paid); DB.seq.cn++;
+  DB.creditNotes.unshift({id:'CN-'+String(DB.seq.cn).padStart(4,'0'),invoiceId:inv.id,custId:inv.custId,amount:a,reason:gid('cnReason').value.trim(),date:todayISO()});
+  inv.paid+=a; inv.status=inv.paid>=inv.total?'Paid':'Partially Paid';
+  const c=DB.customers.find(x=>x.id===inv.custId); if(c) c.balance=Math.max(0,c.balance-a);
+  toast('Credit note issued.'); renderPage();
+}
+
+function renderRecurring(){
+  return head('Recurring Invoices','Schedules that generate invoices automatically',`<div class="page-actions"><button class="btn btn-primary" onclick="runRecurring()">Run Due Now</button></div>`)+`
+  <div class="card"><div class="card-body"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+    <select id="rcCust">${custOpts()}</select>
+    <select id="rcProd"><option value="">Select product</option>${DB.products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}</select>
+    <input id="rcQty" type="number" min="1" value="1" placeholder="Qty">
+    <select id="rcFreq"><option>Weekly</option><option selected>Monthly</option><option>Quarterly</option></select>
+    <input id="rcNext" type="date" value="${todayISO()}"><button class="btn btn-primary" onclick="saveRecurring()">Save Schedule</button></div></div></div>
+  <div class="card" style="margin-top:16px"><div class="card-body flush table-scroll"><table><thead><tr><th>Schedule</th><th>Customer</th><th>Product</th><th>Qty</th><th>Frequency</th><th>Next Run</th><th></th></tr></thead><tbody>
+  ${DB.recurring.map((r,i)=>`<tr><td>${r.id}</td><td>${custName(r.custId)}</td><td>${prodName(r.pid)}</td><td>${r.qty}</td><td>${r.freq}</td><td>${r.next}</td><td><span class="row-link" onclick="DB.recurring.splice(${i},1);renderPage()">Delete</span></td></tr>`).join('')||'<tr class="empty-row"><td colspan="7">No recurring schedules.</td></tr>'}
+  </tbody></table></div></div>`;
+}
+function saveRecurring(){
+  const custId=gid('rcCust').value,pid=gid('rcProd').value,qty=parseFloat(gid('rcQty').value);
+  if(!custId||!pid||!(qty>0)) return toast('Choose a customer, product and quantity.');
+  DB.seq.rec++; DB.recurring.push({id:'REC-'+String(DB.seq.rec).padStart(3,'0'),custId,pid,qty,freq:gid('rcFreq').value,next:gid('rcNext').value||todayISO()});
+  toast('Schedule saved.'); renderPage();
+}
+function runRecurring(){
+  let n=0;
+  DB.recurring.forEach(r=>{
+    while(r.next<=todayISO()){
+      const p=DB.products.find(x=>x.id===r.pid); if(!p) break;
+      const lines=[{pid:r.pid,qty:r.qty,price:p.price,disc:0}], t=computeTotals(lines); DB.seq.invoice++;
+      DB.invoices.unshift({id:'INV-'+String(DB.seq.invoice).padStart(4,'0'),custId:r.custId,lines,date:r.next,dueDate:addDays(r.next,14),subtotal:t.subtotal,discount:t.discountTotal,vat:t.vat,total:t.grand,paid:0,status:'Sent',recurringId:r.id});
+      const c=DB.customers.find(x=>x.id===r.custId); if(c) c.balance=(c.balance||0)+t.grand;
+      r.next=addDays(r.next,r.freq==='Weekly'?7:r.freq==='Quarterly'?91:30); n++;
+    }
+  });
+  toast(n?n+' invoice(s) generated.':'Nothing due.'); renderPage();
+}
+
+function renderDelivery(){
+  const rows=DB.orders.filter(o=>o.status!=='Cancelled');
+  return head('Delivery','Track order fulfilment from confirmation to delivery')+`
+  <div class="card"><div class="card-body flush table-scroll"><table><thead><tr><th>Order</th><th>Customer</th><th>Status</th><th>Delivery Date</th><th>Update</th></tr></thead><tbody>
+  ${rows.map(o=>`<tr><td>${o.id}</td><td>${custName(o.custId)}</td><td>${statusPill(o.status)}</td><td>${o.deliveryDate||'—'}</td>
+    <td><select onchange="setDelivery('${o.id}',this.value)">${['Pending','Confirmed','Packed','Delivered'].map(s=>`<option ${s===o.status?'selected':''}>${s}</option>`).join('')}</select></td></tr>`).join('')||'<tr class="empty-row"><td colspan="5">No orders to deliver.</td></tr>'}
+  </tbody></table></div></div>`;
+}
+function setDelivery(id,st){ const o=DB.orders.find(x=>x.id===id); o.status=st; if(st==='Delivered') o.deliveryDate=todayISO(); toast(id+' marked '+st+'.'); renderPage(); }
+
+function renderStatement(){
+  const cid=pageState.stCust||'', f=pageState.stFrom||'', t=pageState.stTo||'';
+  let rows=[];
+  if(cid){
+    DB.invoices.filter(i=>i.custId===cid).forEach(i=>rows.push({d:i.date,ref:i.id,desc:'Invoice',dr:i.total,cr:0}));
+    DB.payments.filter(p=>p.custId===cid).forEach(p=>rows.push({d:p.date,ref:p.id,desc:'Receipt ('+p.method+')',dr:0,cr:p.amount}));
+    DB.creditNotes.filter(n=>n.custId===cid).forEach(n=>rows.push({d:n.date,ref:n.id,desc:'Credit note',dr:0,cr:n.amount}));
+    rows.sort((a,b)=>a.d.localeCompare(b.d)); let bal=0; rows.forEach(r=>{bal+=r.dr-r.cr; r.bal=bal;});
+    rows=rows.filter(r=>(!f||r.d>=f)&&(!t||r.d<=t));
+  }
+  const set=(k,v)=>`pageState.${k}='${v}'`;
+  return head('Customer Statement','Invoices, receipts and credit notes with a running balance',`<div class="page-actions"><button class="btn" onclick="window.print()">Print</button></div>`)+`
+  <div class="card"><div class="card-body" style="display:flex;gap:12px;flex-wrap:wrap">
+    <select onchange="pageState.stCust=this.value;renderPage()">${custOpts().replace(`value="${cid}"`,`value="${cid}" selected`)}</select>
+    <input type="date" value="${f}" onchange="pageState.stFrom=this.value;renderPage()"><input type="date" value="${t}" onchange="pageState.stTo=this.value;renderPage()"></div></div>
+  <div class="card" style="margin-top:16px"><div class="card-body flush table-scroll"><table><thead><tr><th>Date</th><th>Ref</th><th>Description</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead><tbody>
+  ${rows.map(r=>`<tr><td>${r.d}</td><td>${r.ref}</td><td>${r.desc}</td><td class="num">${r.dr?fmt(r.dr):''}</td><td class="num">${r.cr?fmt(r.cr):''}</td><td class="num">${fmt(r.bal)}</td></tr>`).join('')||`<tr class="empty-row"><td colspan="6">${cid?'No activity in this period.':'Select a customer.'}</td></tr>`}
+  </tbody></table></div></div>`;
+}
+
+
+/* ===== Books-style table tools: click a header to sort, Export CSV on list pages ===== */
+const EXPORT_PAGES=['customers','products','quotes','orders','invoices','payments','returns','bulkinv','creditnotes','recurring','delivery','statement'];
+function cellVal(td){ const t=(td?td.innerText:'').trim(); const n=parseFloat(t.replace(/[^0-9.\-]/g,'')); return (t!==''&&/\d/.test(t)&&!isNaN(n)&&/^[A-Za-z]{0,4}\s?[\d,.\-\s]+$/.test(t))?n:t.toLowerCase(); }
+function enhanceTables(){
+  const c=document.getElementById('content'); if(!c) return;
+  c.querySelectorAll('table:not(.li-table)').forEach(tb=>{
+    tb.querySelectorAll('thead th').forEach((th,ci)=>{
+      if(!th.textContent.trim()||th.querySelector('input')) return;
+      th.style.cursor='pointer'; th.title='Click to sort';
+      th.onclick=()=>{
+        const dir=th.dataset.dir==='asc'?'desc':'asc';
+        tb.querySelectorAll('thead th').forEach(x=>{delete x.dataset.dir; x.textContent=x.textContent.replace(/ [▲▼]$/,'');});
+        th.dataset.dir=dir; th.textContent+=dir==='asc'?' ▲':' ▼';
+        const body=tb.tBodies[0], rows=[...body.rows].filter(r=>!r.classList.contains('empty-row'));
+        rows.sort((a,b)=>{const x=cellVal(a.cells[ci]),y=cellVal(b.cells[ci]); const r=(typeof x==='number'&&typeof y==='number')?x-y:String(x).localeCompare(String(y)); return dir==='asc'?r:-r;});
+        rows.forEach(r=>body.appendChild(r));
+      };
+    });
+  });
+  if(EXPORT_PAGES.includes(currentPage) && !c.querySelector('.csv-export')){
+    const head=c.querySelector('.page-head'); if(!head) return;
+    let acts=head.querySelector('.page-actions'); if(!acts){ acts=document.createElement('div'); acts.className='page-actions'; head.appendChild(acts); }
+    const b=document.createElement('button'); b.className='btn csv-export'; b.textContent='Export CSV'; b.onclick=exportTableCSV; acts.prepend(b);
+  }
+}
+function exportTableCSV(){
+  const tb=document.querySelector('#content table:not(.li-table)'); if(!tb) return toast('Nothing to export.');
+  const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+  const lines=[...tb.rows].filter(r=>!r.classList.contains('empty-row')).map(r=>[...r.cells].filter(td=>!td.querySelector('input[type=checkbox]')).map(td=>q(td.innerText.replace(/ [▲▼]$/,'').trim())).join(','));
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'})); a.download=currentPage+'.csv'; a.click();
+}
