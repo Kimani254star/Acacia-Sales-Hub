@@ -1071,7 +1071,7 @@ function renderProducts(){
           <tbody>
           ${rows.length? rows.map(p=>`
             <tr>
-              <td>${p.name}</td>
+              <td>${p.name}${p.bk?' <span style="font-size:10px;padding:1px 6px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:600;">Books</span>':''}</td>
               <td>${p.sku}</td>
               <td class="num">${fmt(p.price)}</td>
               <td class="num">${p.vat}%</td>
@@ -1086,6 +1086,7 @@ function renderProducts(){
 }
 function openProductModal(id){
   const p = id ? DB.products.find(x=>x.id===id) : null;
+  if(p && p.bk){ toast('This item comes from Acacia Books. Change its name, price or stock in Books.'); return; }
   showModal(`
     <div class="modal-head"><h3>${p?'Edit Product':'Add Product'}</h3><button class="close-x" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
@@ -1443,7 +1444,7 @@ function openPaymentModal(invoiceId){
         <div class="field"><label>Amount Received (KES)</label><input type="number" id="f_amount" value="${balance}" max="${balance}"></div>
         <div class="field"><label>Payment Method</label>
           <select id="f_method">
-            <option>Cash</option><option>M-Pesa</option><option>Bank Transfer</option><option>Cheque</option><option>Card</option>
+            <option>Cash</option><option>M-Pesa</option><option>Bank Transfer</option><option>Cheque</option><option>Card</option>${((window.AcaciaBooksData&&window.AcaciaBooksData.banks)||[]).filter(n=>!['cash','m-pesa','bank transfer','cheque','card'].includes(String(n).toLowerCase())).map(n=>`<option>${String(n).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}</option>`).join('')}
           </select>
         </div>
       </div>
