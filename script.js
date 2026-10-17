@@ -965,7 +965,7 @@ function renderCustomers(){
                 <td>${c.location}</td>
                 <td class="num">${fmt(c.credit)}</td>
                 <td class="num">${c.balance>0? fmt(c.balance) : '—'}</td>
-                <td><button class="icon-btn" onclick="openCustomerModal('${c.id}')" title="Edit">&#9998;</button></td>
+                <td class="acx-cell">${ACX_ACT({view:`openCustomerDetail('${c.id}')`, edit:`openCustomerModal('${c.id}')`, clone:`cloneCustomer('${c.id}')`, del:`deleteCustomer('${c.id}')`})}</td>
               </tr>`).join('') : `<tr class="empty-row"><td colspan="7">No customers match your search.</td></tr>`}
           </tbody>
         </table>
@@ -1076,7 +1076,7 @@ function renderProducts(){
               <td class="num">${fmt(p.price)}</td>
               <td class="num">${p.vat}%</td>
               <td class="num" style="color:${p.stock<=p.reorder?'var(--red-600)':'inherit'}; font-weight:${p.stock<=p.reorder?'700':'400'};">${p.stock} ${p.unit}${p.stock<=p.reorder?' ⚠':''}</td>
-              <td><button class="icon-btn" onclick="openProductModal('${p.id}')" title="Edit">&#9998;</button></td>
+              <td class="acx-cell">${ACX_ACT({view:`openProductDetail('${p.id}')`, edit:`openProductModal('${p.id}')`, clone:`cloneProduct('${p.id}')`, del:`deleteProduct('${p.id}')`})}</td>
             </tr>`).join('') : `<tr class="empty-row"><td colspan="6">No products match your search.</td></tr>`}
           </tbody>
         </table>
@@ -1184,7 +1184,7 @@ function renderQuotes(){
       </div>
       <div class="card-body flush table-scroll">
         <table>
-          <thead><tr><th>Quote</th><th>Customer</th><th>Date</th><th class="num">Total</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Quote</th><th>Customer</th><th>Date</th><th class="num">Total</th><th>Status</th><th></th><th class="acx-cell"></th></tr></thead>
           <tbody>
           ${rows.length? rows.map(q=>`
             <tr>
@@ -1196,35 +1196,46 @@ function renderQuotes(){
               <td>
                 ${!q.converted.order ? `<button class="btn btn-sm" onclick="convertQuoteToOrder('${q.id}'); renderPage();">Convert → Order</button>` : `<span class="subtle">→ ${q.converted.order}</span>`}
               </td>
-            </tr>`).join('') : `<tr class="empty-row"><td colspan="6">No quotes in this view.</td></tr>`}
+              <td class="acx-cell">${ACX_ACT({view:`openQuoteDetail('${q.id}')`, edit:`openQuoteModal('${q.id}')`, clone:`cloneQuote('${q.id}')`, del:`deleteQuote('${q.id}')`})}</td>
+            </tr>`).join('') : `<tr class="empty-row"><td colspan="7">No quotes in this view.</td></tr>`}
           </tbody>
         </table>
       </div>
     </div>
   `;
 }
-function openQuoteModal(){
+function openQuoteModal(id){
   if(!DB.products.length){ toast('Add a product before creating a quote.'); goTo('products'); return; }
   if(!DB.customers.length){ toast('Add a customer before creating a quote.'); goTo('customers'); return; }
-  editorLines = [{pid:DB.products[0].id, qty:1, price:DB.products[0].price, disc:0}];
+  const eq = id ? DB.quotes.find(x=>x.id===id) : null;
+  if(eq && eq.converted.order){ toast(eq.id+' was already converted to order '+eq.converted.order+' and can no longer be edited.'); return; }
+  editorLines = eq ? eq.lines.map(l=>({...l})) : [{pid:DB.products[0].id, qty:1, price:DB.products[0].price, disc:0}];
+  const qid = eq ? `,'${eq.id}'` : '';
   showModal(`
-    <div class="modal-head"><h3>New Quote</h3><button class="close-x" onclick="closeModal()">&times;</button></div>
+    <div class="modal-head"><h3>${eq?'Edit '+eq.id:'New Quote'}</h3><button class="close-x" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
       <div class="field"><label>Customer</label>
-        <select id="f_cust">${DB.customers.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}</select>
+        <select id="f_cust">${DB.customers.map(c=>`<option value="${c.id}" ${eq&&eq.custId===c.id?'selected':''}>${c.name}</option>`).join('')}</select>
       </div>
       <div id="lineEditorHost">${lineEditorHTML()}</div>
     </div>
     <div class="modal-foot">
       <button class="btn" onclick="closeModal()">Cancel</button>
-      <button class="btn" onclick="saveQuote('Draft')">Save as Draft</button>
-      <button class="btn btn-primary" onclick="saveQuote('Sent')">Save &amp; Send</button>
+      <button class="btn" onclick="saveQuote('Draft'${qid})">Save as Draft</button>
+      <button class="btn btn-primary" onclick="saveQuote('Sent'${qid})">Save &amp; Send</button>
     </div>
   `, 'wide');
 }
-function saveQuote(status){
+function saveQuote(status, editId){
   if(!editorLines.length){ toast('Add at least one product line.'); return; }
   const custId = document.getElementById('f_cust').value;
+  if(editId){
+    const eq = DB.quotes.find(x=>x.id===editId);
+    if(eq){
+      eq.custId = custId; eq.lines = editorLines.map(l=>({...l})); eq.total = computeTotals(eq.lines).grand; eq.status = status;
+      closeModal(); toast('Quote '+eq.id+' updated.'); goTo('quotes'); return;
+    }
+  }
   const q = makeQuote(custId, editorLines.map(l=>({...l})), status);
   closeModal(); toast('Quote '+q.id+' created.'); goTo('quotes');
 }
@@ -1288,7 +1299,7 @@ function renderOrders(){
       </div>
       <div class="card-body flush table-scroll">
         <table>
-          <thead><tr><th>Order</th><th>Customer</th><th>Date</th><th class="num">Total</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Order</th><th>Customer</th><th>Date</th><th class="num">Total</th><th>Status</th><th></th><th class="acx-cell"></th></tr></thead>
           <tbody>
           ${rows.length? rows.map(o=>`
             <tr>
@@ -1300,7 +1311,8 @@ function renderOrders(){
               <td>
                 ${!o.converted.invoice ? `<button class="btn btn-sm" onclick="convertOrderToInvoice('${o.id}'); renderPage();">Convert → Invoice</button>` : `<span class="subtle">→ ${o.converted.invoice}</span>`}
               </td>
-            </tr>`).join('') : `<tr class="empty-row"><td colspan="6">No orders in this view.</td></tr>`}
+              <td class="acx-cell">${ACX_ACT({view:`openOrderDetail('${o.id}')`, edit:`openOrderEdit('${o.id}')`, clone:`cloneOrder('${o.id}')`, del:`deleteOrder('${o.id}')`})}</td>
+            </tr>`).join('') : `<tr class="empty-row"><td colspan="7">No orders in this view.</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -1367,7 +1379,7 @@ function renderInvoices(){
       </div>
       <div class="card-body flush table-scroll">
         <table>
-          <thead><tr><th>Invoice</th><th>Customer</th><th>Date</th><th>Due</th><th class="num">Total</th><th class="num">Balance</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Invoice</th><th>Customer</th><th>Date</th><th>Due</th><th class="num">Total</th><th class="num">Balance</th><th>Status</th><th></th><th class="acx-cell"></th></tr></thead>
           <tbody>
           ${rows.length? rows.map(i=>`
             <tr>
@@ -1379,7 +1391,8 @@ function renderInvoices(){
               <td class="num">${fmt(i.total-i.paid)}</td>
               <td>${statusPill(daysOverdue(i)>0 && i.status!=='Paid' ? 'Overdue' : i.status)}</td>
               <td>${i.status!=='Paid' ? `<button class="btn btn-sm btn-gold" onclick="openPaymentModal('${i.id}')">Receive Payment</button>` : `<span class="subtle">Settled</span>`}</td>
-            </tr>`).join('') : `<tr class="empty-row"><td colspan="8">No invoices in this view.</td></tr>`}
+              <td class="acx-cell">${ACX_ACT({view:`openInvoiceDetail('${i.id}')`, edit:`openInvoiceEdit('${i.id}')`, clone:`cloneInvoice('${i.id}')`, del:`deleteInvoice('${i.id}')`})}</td>
+            </tr>`).join('') : `<tr class="empty-row"><td colspan="9">No invoices in this view.</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -1538,6 +1551,187 @@ function submitNewSale(){
 }
 
 /* =====================================================================
+   ROW ACTIONS — preview / edit / clone / delete (same buttons as Books)
+===================================================================== */
+function docUsesProduct(pid){
+  return [DB.quotes, DB.orders, DB.invoices].some(list=> list.some(d=> (d.lines||[]).some(l=>l.pid===pid)));
+}
+/* customers */
+function cloneCustomer(id){
+  const c = DB.customers.find(x=>x.id===id); if(!c) return;
+  DB.seq.cust++;
+  DB.customers.unshift({...c, id:'C-'+DB.seq.cust, name:c.name+' (Copy)', balance:0});
+  toast('Customer cloned.'); renderPage();
+}
+function deleteCustomer(id){
+  const c = DB.customers.find(x=>x.id===id); if(!c) return;
+  const used = DB.quotes.some(d=>d.custId===id) || DB.orders.some(d=>d.custId===id) || DB.invoices.some(d=>d.custId===id);
+  if(used){ toast('Cannot delete '+c.name+': they have quotes, orders or invoices.'); return; }
+  if(!confirm('Delete customer "'+c.name+'"? This cannot be undone.')) return;
+  DB.customers = DB.customers.filter(x=>x.id!==id);
+  toast('Customer deleted.'); renderPage();
+}
+/* products */
+function openProductDetail(id){
+  const p = DB.products.find(x=>x.id===id); if(!p) return;
+  const cell = (k,v)=>`<div><span class="subtle">${k}</span><div>${v}</div></div>`;
+  showModal(`
+    <div class="modal-head"><h3>${p.name}</h3><button class="close-x" onclick="closeModal()">&times;</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        ${cell('SKU', p.sku||'—')}${cell('Selling price', fmt(p.price))}${cell('VAT', p.vat+'%')}
+        ${cell('In stock', p.stock+' '+p.unit)}${cell('Reorder at', p.reorder)}${cell('Source', p.bk?'Acacia Books':'Added in Sell')}
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">Close</button></div>
+  `);
+}
+function cloneProduct(id){
+  const p = DB.products.find(x=>x.id===id); if(!p) return;
+  const copy = {...p}; Object.keys(copy).forEach(k=>{ if(/^bk/i.test(k)) delete copy[k]; });
+  DB.seq.prod++;
+  DB.products.unshift({...copy, id:'P-'+DB.seq.prod, name:p.name+' (Copy)', sku:(p.sku||'AC')+'-COPY'});
+  toast('Product cloned.'); renderPage();
+}
+function deleteProduct(id){
+  const p = DB.products.find(x=>x.id===id); if(!p) return;
+  if(p.bk){ toast('This item comes from Acacia Books. Delete it in Books.'); return; }
+  if(docUsesProduct(id)){ toast('Cannot delete '+p.name+': it is used on quotes, orders or invoices.'); return; }
+  if(!confirm('Delete product "'+p.name+'"? This cannot be undone.')) return;
+  DB.products = DB.products.filter(x=>x.id!==id);
+  toast('Product deleted.'); renderPage();
+}
+/* quotes (edit is the quote editor, see openQuoteModal) */
+function cloneQuote(id){
+  const q = DB.quotes.find(x=>x.id===id); if(!q) return;
+  const n = makeQuote(q.custId, q.lines.map(l=>({...l})), 'Draft');
+  toast('Quote cloned as '+n.id+'.'); renderPage();
+}
+function deleteQuote(id){
+  const q = DB.quotes.find(x=>x.id===id); if(!q) return;
+  if(q.converted.order){ toast(q.id+' was converted to order '+q.converted.order+'. Delete that order first.'); return; }
+  if(!confirm('Delete quote '+q.id+'? This cannot be undone.')) return;
+  DB.quotes = DB.quotes.filter(x=>x.id!==id);
+  toast('Quote deleted.'); renderPage();
+}
+/* orders */
+function openOrderEdit(id){
+  const o = DB.orders.find(x=>x.id===id); if(!o) return;
+  const inv = !!o.converted.invoice;
+  editorLines = o.lines.map(l=>({...l}));
+  showModal(`
+    <div class="modal-head"><h3>Edit ${o.id}</h3><button class="close-x" onclick="closeModal()">&times;</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field"><label>Customer</label>
+          <select id="f_cust" ${inv?'disabled':''}>${DB.customers.map(c=>`<option value="${c.id}" ${o.custId===c.id?'selected':''}>${c.name}</option>`).join('')}</select></div>
+        <div class="field"><label>Status</label>
+          <select id="f_ostatus" ${inv?'disabled':''}>${['Pending','Confirmed','Packed','Delivered','Cancelled'].map(s=>`<option ${s===o.status?'selected':''}>${s}</option>`).join('')}</select></div>
+        <div class="field"><label>Delivery date</label><input type="date" id="f_deliv" value="${o.deliveryDate||''}"></div>
+      </div>
+      ${inv ? `<div class="subtle" style="margin-top:10px;">This order is already invoiced as ${o.converted.invoice}. Customer, lines and status are locked; you can still set the delivery date.</div>`
+            : `<div id="lineEditorHost">${lineEditorHTML()}</div>`}
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveOrderEdit('${o.id}')">Save changes</button>
+    </div>
+  `, 'wide');
+}
+function saveOrderEdit(id){
+  const o = DB.orders.find(x=>x.id===id); if(!o) return;
+  const dd = document.getElementById('f_deliv').value;
+  if(!o.converted.invoice){
+    if(!editorLines.length){ toast('Add at least one product line.'); return; }
+    o.custId = document.getElementById('f_cust').value;
+    o.status = document.getElementById('f_ostatus').value;
+    o.lines = editorLines.map(l=>({...l}));
+    o.total = computeTotals(o.lines).grand;
+  }
+  if(dd) o.deliveryDate = dd; else delete o.deliveryDate;
+  closeModal(); toast('Order '+o.id+' updated.'); renderPage();
+}
+function cloneOrder(id){
+  const o = DB.orders.find(x=>x.id===id); if(!o) return;
+  DB.seq.order++;
+  const n = { id:'SO-'+DB.seq.order, custId:o.custId, lines:o.lines.map(l=>({...l})), status:'Pending', date:todayISO(), total:o.total, converted:{invoice:null} };
+  DB.orders.unshift(n);
+  toast('Order cloned as '+n.id+'.'); renderPage();
+}
+function deleteOrder(id){
+  const o = DB.orders.find(x=>x.id===id); if(!o) return;
+  if(o.converted.invoice){ toast(o.id+' is invoiced as '+o.converted.invoice+'. Delete that invoice first.'); return; }
+  if(!confirm('Delete order '+o.id+'? This cannot be undone.')) return;
+  DB.orders = DB.orders.filter(x=>x.id!==id);
+  DB.quotes.forEach(q=>{ if(q.converted && q.converted.order===id){ q.converted.order = null; q.status = 'Sent'; } });
+  toast('Order deleted.'); renderPage();
+}
+/* invoices: lines/amounts are tied to stock and receipts, so edit covers due date and status only */
+function openInvoiceEdit(id){
+  const i = DB.invoices.find(x=>x.id===id); if(!i) return;
+  const locked = i.paid>0;
+  showModal(`
+    <div class="modal-head"><h3>Edit ${i.id}</h3><button class="close-x" onclick="closeModal()">&times;</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div><span class="subtle">Customer</span><div>${custName(i.custId)}</div></div>
+        <div><span class="subtle">Total</span><div>${fmt(i.total)}</div></div>
+        <div class="field"><label>Due date</label><input type="date" id="f_due" value="${i.dueDate||''}"></div>
+        <div class="field"><label>Status</label>
+          <select id="f_istatus" ${locked?'disabled':''}>${(locked?[i.status]:['Draft','Sent','Cancelled']).map(s=>`<option ${s===i.status?'selected':''}>${s}</option>`).join('')}</select></div>
+      </div>
+      <div class="subtle" style="margin-top:10px;">${locked?'This invoice already has receipts, so its status follows the payments.':'To change products or quantities, clone the invoice or use a credit note / return.'}</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveInvoiceEdit('${i.id}')">Save changes</button>
+    </div>
+  `);
+}
+function saveInvoiceEdit(id){
+  const i = DB.invoices.find(x=>x.id===id); if(!i) return;
+  const due = document.getElementById('f_due').value;
+  if(due) i.dueDate = due;
+  if(!(i.paid>0)) i.status = document.getElementById('f_istatus').value;
+  closeModal(); toast('Invoice '+i.id+' updated.'); renderPage();
+}
+function cloneInvoice(id){
+  const i = DB.invoices.find(x=>x.id===id); if(!i) return;
+  if(!confirm('Clone '+i.id+' as a new invoice? Like any new sale, this reduces stock by the quantities on it.')) return;
+  const q = makeQuote(i.custId, i.lines.map(l=>({...l})), 'Accepted');
+  const o = convertQuoteToOrder(q.id, {silent:true});
+  const n = convertOrderToInvoice(o.id, {silent:true});
+  toast('Invoice cloned as '+n.id+'.'); renderPage();
+}
+function deleteInvoice(id){
+  const i = DB.invoices.find(x=>x.id===id); if(!i) return;
+  if(i.paid>0 || DB.payments.some(p=>p.invoiceId===id)){ toast('Delete the receipts on '+i.id+' first, then delete the invoice.'); return; }
+  if(DB.returns.some(r=>r.invoiceId===id) || (DB.creditNotes||[]).some(n=>n.invoiceId===id)){ toast(i.id+' has returns or credit notes and cannot be deleted.'); return; }
+  if(!confirm('Delete invoice '+i.id+'? Stock sold on it is put back. This cannot be undone.')) return;
+  if(i.orderId){
+    (i.lines||[]).forEach(l=>{ const p = DB.products.find(pp=>pp.id===l.pid); if(p) p.stock += l.qty; });
+    const o = DB.orders.find(x=>x.id===i.orderId);
+    if(o){ o.converted.invoice = null; if(o.status==='Delivered') o.status = 'Confirmed'; }
+  }
+  if(i.recurringId){ const c = DB.customers.find(x=>x.id===i.custId); if(c) c.balance = Math.max(0, (c.balance||0) - i.total); }
+  DB.invoices = DB.invoices.filter(x=>x.id!==id);
+  toast('Invoice deleted.'); renderPage();
+}
+/* receipts */
+function deletePayment(id){
+  const p = DB.payments.find(x=>x.id===id); if(!p) return;
+  if(!confirm('Delete receipt '+p.id+' ('+fmt(p.amount)+')? The invoice balance is restored.')) return;
+  const i = DB.invoices.find(x=>x.id===p.invoiceId);
+  if(i){
+    i.paid = Math.max(0, i.paid - p.amount);
+    i.status = i.paid<=0 ? 'Sent' : (i.paid>=i.total ? 'Paid' : 'Partially Paid');
+  }
+  if(i && i.recurringId){ const c = DB.customers.find(x=>x.id===p.custId); if(c) c.balance = (c.balance||0) + p.amount; }
+  DB.payments = DB.payments.filter(x=>x.id!==id);
+  toast('Receipt deleted.'); renderPage();
+}
+
+/* =====================================================================
    PAYMENTS
 ===================================================================== */
 function renderPayments(){
@@ -1564,7 +1758,7 @@ function renderPayments(){
               <td>${p.date}</td>
               <td>${p.method}</td>
               <td class="num">${fmt(p.amount)}</td>
-              <td><button class="btn btn-sm" onclick="openReceipt('${p.id}')">Receipt</button></td>
+              <td class="acx-cell">${ACX_ACT({view:`openReceipt('${p.id}')`, del:`deletePayment('${p.id}')`})}</td>
             </tr>`).join('') : `<tr class="empty-row"><td colspan="7">No payments recorded yet.</td></tr>`}
           </tbody>
         </table>
