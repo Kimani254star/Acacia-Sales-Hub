@@ -106,7 +106,9 @@
       afterRead: function (rows) {
         var d = db(), changed = false;
         var arr = function (k) { try { var v = rows[k] && JSON.parse(rows[k].value); if (typeof v === 'string') v = JSON.parse(v); return Array.isArray(v) ? v : null; } catch (e) { return null; } };
-        var inv = arr('inventory'), banks = arr('banks'), coa = arr('chartOfAccounts');
+        var inv = null, banks = arr('banks'), coa = arr('chartOfAccounts');
+        /* Books keeps stock per warehouse as inventory_<warehouse>; merge every one of them (plus a plain 'inventory' row if present) */
+        Object.keys(rows).forEach(function (rk) { if (rk === 'inventory' || rk.indexOf('inventory_') === 0) { var part = arr(rk); if (part) inv = (inv || []).concat(part); } });
         var names = []; (banks || []).forEach(function (b) { var n = b && (b.name || b.bankName || b.accountName); if (n && names.indexOf(String(n)) < 0) names.push(String(n)); });
         w.AcaciaBooksData = { banks: names, accounts: coa || [] };
         if (inv) {
@@ -302,7 +304,7 @@
     } catch (e) {}
   }
   function fillPop() {
-    pop.innerHTML = '<div style="font-weight:700;margin-bottom:6px">Books sync</div><div style="margin-bottom:6px">' + String(ST.msg).replace(/</g, '&lt;') + '</div><div style="color:#6b7280;font-size:11px;margin-bottom:8px">Company ID: <b>' + (ST.company || '—') + '</b>' + (ST.at ? ' · last run ' + ST.at.toLocaleTimeString() : '') + (ST.counts ? '<br>' + ST.counts : '') + (ST.extra ? '<br>' + ST.extra : '') + '</div><button id="acxBridgeNow" style="background:#0f766e;color:#fff;border:0;border-radius:6px;padding:5px 10px;cursor:pointer">Sync now</button> <button id="acxBridgeCopy" style="border:1px solid #d1d5db;background:#fff;border-radius:6px;padding:5px 10px;cursor:pointer">Copy details</button> <button id="acxBridgeX" style="border:1px solid #d1d5db;background:#fff;border-radius:6px;padding:5px 10px;cursor:pointer">Close</button>';
+    pop.innerHTML = '<div style="font-weight:700;margin-bottom:6px">Books sync</div><div style="margin-bottom:6px">' + String(ST.msg).replace(/</g, '&lt;') + '</div><div style="color:#6b7280;font-size:11px;margin-bottom:8px">Company ID: <b>' + (ST.company || '—') + '</b>' + (ST.at ? ' · last run ' + ST.at.toLocaleTimeString() : '') + (ST.counts ? '<br>' + ST.counts : '') + (ST.extra ? '<br>' + ST.extra : '') + (ST.docs ? '<br>' + ST.docs : '') + '</div><button id="acxBridgeNow" style="background:#0f766e;color:#fff;border:0;border-radius:6px;padding:5px 10px;cursor:pointer">Sync now</button> <button id="acxBridgeCopy" style="border:1px solid #d1d5db;background:#fff;border-radius:6px;padding:5px 10px;cursor:pointer">Copy details</button> <button id="acxBridgeX" style="border:1px solid #d1d5db;background:#fff;border-radius:6px;padding:5px 10px;cursor:pointer">Close</button>';
     pop.querySelector('#acxBridgeNow').onclick = function () { ST.msg = 'Syncing…'; fillPop(); sync(true); };
     pop.querySelector('#acxBridgeCopy').onclick = function () {
       var u = user() || {}, txt = JSON.stringify({ app: APP, companyId: ST.company, loginEmail: u.email || '', status: ST.state, message: ST.msg, books: ST.counts, extra: ST.extra || '', lastError: ST.err || '', lastRun: ST.at ? ST.at.toISOString() : '', page: (location && location.host || '') + (location && location.pathname || '') }, null, 2), b = this;
