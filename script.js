@@ -1,3 +1,7 @@
+/* HTML-escape helper (step 5) */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+/* HTML-escape helper (step 5) */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 /* Public home page: single-view navigation, same behaviour as the Support site */
   function hpMore(btn){
     var card=btn.closest('.hp-tier');
@@ -145,6 +149,29 @@ function hpContact(e){
 
   async function signIn(email, pass, company) {
     email = low(email);
+    /* passwords are checked inside Postgres (acx_login); the browser never sees a hash */
+    var rows;
+    try { rows = await rpc('acx_login', { p_email: email, p_password: pass, p_company: company || null }); }
+    catch (e) { if (e.code === 'missing') return signInLegacy(email, pass, company); throw e; }   /* acx_login not installed yet: remove this line once step2_secure_login.sql is run */
+    if (!Array.isArray(rows) || !rows.length) return null;
+    return finishSignIn(rows, email);
+  }
+
+  async function finishSignIn(ok, email) {
+    var row = ok[0];
+    if (ok.length > 1) {
+      var pick = w.prompt('This login belongs to more than one company:\n' + ok.map(function (x, n) { return (n + 1) + '. ' + ((x.data && x.data.companyName) || x.company_id) + ' (' + x.company_id + ')'; }).join('\n') + '\n\nType the number to open:', '1');
+      row = ok[(parseInt(pick, 10) || 1) - 1] || ok[0];
+    }
+    var msg = await gate(row.company_id, email); if (msg) throw err('blocked', msg);
+    try { if (row.session && w.AcxSession) w.AcxSession.add(row.session); } catch (e) {}   /* session token for row-level security */
+    var d = row.data || {};
+    return { companyId: row.company_id, company: d.companyName || '', name: d.fullName || d.username || email.split('@')[0], email: email, role: mapRole(d.role, d) };
+  }
+
+  /* OLD path (reads the hash into the browser). Only used until acx_login exists. */
+  async function signInLegacy(email, pass, company) {
+    email = low(email);
     var r = await req('app_accounts?select=login_id,username,company_id,data&login_id=eq.' + enc(email));
     if (!r.ok) throw err('offline', 'Could not read accounts (' + r.status + '). Run acacia_apps_cloud.sql in Supabase.');
     var rows = await r.json(), ok = [], cn = low(company);
@@ -162,7 +189,7 @@ function hpContact(e){
   }
 
   async function register(o) {
-    var salt = newSalt(), h = await hash(o.password, salt);
+    var salt = o.passwordSalt || newSalt(), h = o.passwordHash || await hash(o.password, salt);
     var id = await rpc('acx_register_company', { p_company: o.company, p_name: o.name, p_email: low(o.email), p_hash: h, p_salt: salt, p_app: cfg.app, p_plan: o.plan || '', p_billing: o.billing || 'monthly' });
     var blocked = await gate(id, o.email);
     return { companyId: id, passwordHash: h, passwordSalt: salt, blocked: blocked };
@@ -171,7 +198,7 @@ function hpContact(e){
   /* teammates added inside an app (CRM Users & Roles). The app's own role is kept per app; Books sees admin/user */
   var booksRole = function (r) { return /^admin/i.test(String(r || '')) ? 'admin' : 'user'; };
   async function addUser(o) {
-    var salt = newSalt(), h = await hash(o.password, salt);
+    var salt = o.passwordSalt || newSalt(), h = o.passwordHash || await hash(o.password, salt);
     await rpc('acx_add_user', { p_company: o.companyId, p_name: o.name, p_email: low(o.email), p_role: booksRole(o.role), p_hash: h, p_salt: salt, p_app: cfg.app, p_app_role: o.role || '' });
     return { passwordHash: h, passwordSalt: salt };
   }
@@ -183,26 +210,34 @@ function hpContact(e){
     try {
       var list = JSON.parse(localStorage.getItem(usersKey) || '[]');
       var rec = { companyId: u.companyId, company: u.company, name: u.name, email: low(u.email), role: u.role, passwordHash: u.passwordHash, passwordSalt: u.passwordSalt };
+      Object.keys(rec).forEach(function (k) { if (rec[k] === undefined) delete rec[k]; });
       var i = list.findIndex(function (x) { return low(x.email) === rec.email && x.companyId === rec.companyId; });
       if (i > -1) { list[i] = Object.assign({}, list[i], rec); delete list[i].password; } else list.push(rec);
       rawSet.call(localStorage, usersKey, JSON.stringify(list));
     } catch (e) {}
   }
-  function verifyLocal(u, pass) { return verify(u, pass); }
+  async function verifyLocal(u, pass) {
+    if (!u) return false;
+    if (u.passwordHash && u.passwordSalt) return verify({ passwordHash: u.passwordHash, passwordSalt: u.passwordSalt }, pass);
+    /* old record from before this fix: accept the plaintext once, then replace it with a salted hash and wipe it */
+    if (typeof u.password === 'string' && u.password === pass) { var s = newSalt(); u.passwordHash = await hash(pass, s); u.passwordSalt = s; delete u.password; return true; }
+    return false;
+  }
+  async function sealLocal(pass) { var s = newSalt(); return { passwordHash: await hash(pass, s), passwordSalt: s }; }
 
   /* accounts that only ever existed in this browser get a cloud company; their data and teammates move with them.
      'all' is the local users array: it is updated in place (caller saves it). Returns the signed-in user's new record. */
   async function migrate(u, pass, all) {
     var oldId = u.companyId, same = (all || [u]).filter(function (x) { return x.companyId === oldId; });
-    var owner = same.find(function (x) { return /^admin/i.test(String(x.role || 'Administrator')) && x.password; }) || u;
+    var owner = same.find(function (x) { return /^admin/i.test(String(x.role || 'Administrator')) && (x.password || x.passwordHash); }) || u;
     var ownerPass = owner === u ? pass : owner.password;
-    var r = await register({ company: owner.company, name: owner.name, email: owner.email, password: ownerPass });
+    var r = await register({ company: owner.company, name: owner.name, email: owner.email, password: ownerPass, passwordHash: owner.passwordHash, passwordSalt: owner.passwordSalt });
     for (var i = 0; i < same.length; i++) {
       var x = same[i];
       if (x === owner) { x.passwordHash = r.passwordHash; x.passwordSalt = r.passwordSalt; }
       else {
         var pw = x === u ? pass : x.password;
-        if (pw) { try { var h = await addUser({ companyId: r.companyId, name: x.name, email: x.email, password: pw, role: x.role || 'Administrator' }); x.passwordHash = h.passwordHash; x.passwordSalt = h.passwordSalt; } catch (e) { continue; } }
+        if (pw || x.passwordHash) { try { var h = await addUser({ companyId: r.companyId, name: x.name, email: x.email, password: pw, passwordHash: x.passwordHash, passwordSalt: x.passwordSalt, role: x.role || 'Administrator' }); x.passwordHash = h.passwordHash; x.passwordSalt = h.passwordSalt; } catch (e) { continue; } }
         else continue;
       }
       delete x.password; x.companyId = r.companyId;
@@ -458,7 +493,7 @@ function hpContact(e){
   };
   setTimeout(function () { try { if (w.acxPlanChanged) w.acxPlanChanged(); } catch (e) {} }, 0);
 
-  w.AcaciaCloud = { onRemote: onRemote, sync: syncNow, init: init, signIn: signIn, register: register, addUser: addUser, setRole: setRole, removeUser: removeUser, cacheUser: cacheUser, verifyLocal: verifyLocal, migrate: migrate, start: start, stop: stop, flush: flush, isCloudId: isCloudId, gate: gate, URL: URL_, KEY: KEY_, rpc: rpc, req: req };
+  w.AcaciaCloud = { onRemote: onRemote, sync: syncNow, init: init, signIn: signIn, register: register, addUser: addUser, setRole: setRole, removeUser: removeUser, cacheUser: cacheUser, verifyLocal: verifyLocal, sealLocal: sealLocal, migrate: migrate, start: start, stop: stop, flush: flush, isCloudId: isCloudId, gate: gate, URL: URL_, KEY: KEY_, rpc: rpc, req: req };
 })(window);
 ;
 /* =====================================================================
@@ -547,7 +582,7 @@ async function handleRegister(){
     if(e.code === 'exists'){ showAuthError('registerError','This company already has an account with that email. Please sign in instead.'); return; }
     if(e.code !== 'offline'){ showAuthError('registerError', e.message || 'Could not create the account. Please try again.'); return; }
     if(users.some(u=>u.email===email)){ showAuthError('registerError','An account with that email already exists.'); return; }
-    user = {companyId:uid('co'), company, name, email, password, role:'Administrator'};   // offline: uploaded the next time you sign in online
+    user = Object.assign({companyId:uid('co'), company, name, email, role:'Administrator'}, await AcaciaCloud.sealLocal(password));   // offline: uploaded the next time you sign in online
   }
   if(viaCloud) AcaciaCloud.cacheUser(USERS_KEY, user); else { users.push(user); saveUsers(users); }
   setSession(user);
@@ -569,6 +604,7 @@ async function handleLogin(){
     const users = getUsers();
     for(const u of users){ if(u.email === email && String(u.company||'').trim().toLowerCase() === company.toLowerCase() && await AcaciaCloud.verifyLocal(u, password)){ user = u; break; } }
     if(!user){ showAuthError('loginError','That email and password combination was not found.'); return; }
+    saveUsers(users);   /* keeps the plaintext-to-hash upgrade */
     if(!AcaciaCloud.isCloudId(user.companyId)){
       try{ const moved = await AcaciaCloud.migrate(user, password, users); if(moved){ saveUsers(users); user = moved; } }catch(e){ /* offline: stays on this device for now */ }
     }
@@ -769,7 +805,7 @@ function renderNav(){
   const el = document.getElementById('navList');
   el.innerHTML = NAV.map(n => n.sec ? `<div class="nav-sec" style="padding:10px 16px 4px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.6">${n.sec}</div>` : `
     <div class="nav-item ${currentPage===n.key?'active':''}" onclick="goTo('${n.key}')">
-      <span class="icon">${n.icon}</span><span>${n.label}</span>
+      <span class="icon">${n.icon}</span><span>${esc(n.label)}</span>
     </div>`).join('');
 }
 function goTo(key){
@@ -905,7 +941,7 @@ function renderDashboard(){
             <table>
               <thead><tr><th>Product</th><th class="num">Units sold</th></tr></thead>
               <tbody>
-                ${topProducts.length? topProducts.map(p=>`<tr><td>${p.name}</td><td class="num">${p.sold}</td></tr>`).join('') : `<tr class="empty-row"><td colspan="2">No sales recorded yet.</td></tr>`}
+                ${topProducts.length? topProducts.map(p=>`<tr><td>${esc(p.name)}</td><td class="num">${p.sold}</td></tr>`).join('') : `<tr class="empty-row"><td colspan="2">No sales recorded yet.</td></tr>`}
               </tbody>
             </table>
           </div>
@@ -917,7 +953,7 @@ function renderDashboard(){
               <thead><tr><th>Product</th><th class="num">In stock</th><th class="num">Reorder at</th></tr></thead>
               <tbody>
                 ${lowStock.length? lowStock.map(p=>`
-                  <tr><td>${p.name}</td><td class="num">${p.stock}</td><td class="num">${p.reorder}</td></tr>`).join('')
+                  <tr><td>${esc(p.name)}</td><td class="num">${p.stock}</td><td class="num">${p.reorder}</td></tr>`).join('')
                   : `<tr class="empty-row"><td colspan="3">Every product is above its reorder level.</td></tr>`}
               </tbody>
             </table>
@@ -959,10 +995,10 @@ function renderCustomers(){
           <tbody>
             ${rows.length? rows.map(c=>`
               <tr>
-                <td><span class="row-link" onclick="openCustomerDetail('${c.id}')">${c.name}</span></td>
-                <td>${c.contact}</td>
-                <td>${c.phone}</td>
-                <td>${c.location}</td>
+                <td><span class="row-link" onclick="openCustomerDetail('${c.id}')">${esc(c.name)}</span></td>
+                <td>${esc(c.contact)}</td>
+                <td>${esc(c.phone)}</td>
+                <td>${esc(c.location)}</td>
                 <td class="num">${fmt(c.credit)}</td>
                 <td class="num">${c.balance>0? fmt(c.balance) : '—'}</td>
                 <td class="acx-cell">${ACX_ACT({view:`openCustomerDetail('${c.id}')`, edit:`openCustomerModal('${c.id}')`, clone:`cloneCustomer('${c.id}')`, del:`deleteCustomer('${c.id}')`})}</td>
@@ -1019,11 +1055,11 @@ function openCustomerDetail(id){
   const invs = DB.invoices.filter(i=>i.custId===id);
   const pays = DB.payments.filter(p=>p.custId===id);
   showModal(`
-    <div class="modal-head"><h3>${c.name}</h3><button class="close-x" onclick="closeModal()">&times;</button></div>
+    <div class="modal-head"><h3>${esc(c.name)}</h3><button class="close-x" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
       <div class="form-grid">
-        <div><span class="subtle">Contact</span><div>${c.contact} · ${c.phone}</div></div>
-        <div><span class="subtle">Location</span><div>${c.location}</div></div>
+        <div><span class="subtle">Contact</span><div>${esc(c.contact)} · ${esc(c.phone)}</div></div>
+        <div><span class="subtle">Location</span><div>${esc(c.location)}</div></div>
         <div><span class="subtle">Credit limit</span><div>${fmt(c.credit)}</div></div>
         <div><span class="subtle">Outstanding balance</span><div style="color:${c.balance>0?'var(--red-600)':'var(--green-700)'}; font-weight:700;">${fmt(c.balance)}</div></div>
       </div>
@@ -1071,7 +1107,7 @@ function renderProducts(){
           <tbody>
           ${rows.length? rows.map(p=>`
             <tr>
-              <td>${p.name}${p.bk?' <span style="font-size:10px;padding:1px 6px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:600;">Books</span>':''}</td>
+              <td>${esc(p.name)}${p.bk?' <span style="font-size:10px;padding:1px 6px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:600;">Books</span>':''}</td>
               <td>${p.sku}</td>
               <td class="num">${fmt(p.price)}</td>
               <td class="num">${p.vat}%</td>
@@ -1134,7 +1170,7 @@ function lineEditorHTML(){
       <tr>
         <td style="min-width:170px;">
           <select onchange="editorLines[${idx}].pid=this.value; editorLines[${idx}].price=DB.products.find(p=>p.id===this.value).price; refreshEditor();">
-            ${DB.products.map(pp=>`<option value="${pp.id}" ${pp.id===l.pid?'selected':''}>${pp.name}</option>`).join('')}
+            ${DB.products.map(pp=>`<option value="${pp.id}" ${pp.id===l.pid?'selected':''}>${esc(pp.name)}</option>`).join('')}
           </select>
         </td>
         <td style="width:80px;"><input type="number" min="1" value="${l.qty}" onchange="editorLines[${idx}].qty=Number(this.value)||1; refreshEditor();"></td>
@@ -1215,7 +1251,7 @@ function openQuoteModal(id){
     <div class="modal-head"><h3>${eq?'Edit '+eq.id:'New Quote'}</h3><button class="close-x" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
       <div class="field"><label>Customer</label>
-        <select id="f_cust">${DB.customers.map(c=>`<option value="${c.id}" ${eq&&eq.custId===c.id?'selected':''}>${c.name}</option>`).join('')}</select>
+        <select id="f_cust">${DB.customers.map(c=>`<option value="${c.id}" ${eq&&eq.custId===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>
       </div>
       <div id="lineEditorHost">${lineEditorHTML()}</div>
     </div>
@@ -1520,7 +1556,7 @@ function openNewSaleModal(){
     <div class="modal-head"><h3>New Sale</h3><button class="close-x" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
       <div class="field"><label>Customer</label>
-        <select id="f_cust">${DB.customers.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}</select>
+        <select id="f_cust">${DB.customers.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
       </div>
       <div id="lineEditorHost">${lineEditorHTML()}</div>
       <div class="divider"></div>
@@ -1576,7 +1612,7 @@ function openProductDetail(id){
   const p = DB.products.find(x=>x.id===id); if(!p) return;
   const cell = (k,v)=>`<div><span class="subtle">${k}</span><div>${v}</div></div>`;
   showModal(`
-    <div class="modal-head"><h3>${p.name}</h3><button class="close-x" onclick="closeModal()">&times;</button></div>
+    <div class="modal-head"><h3>${esc(p.name)}</h3><button class="close-x" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
       <div class="form-grid">
         ${cell('SKU', p.sku||'—')}${cell('Selling price', fmt(p.price))}${cell('VAT', p.vat+'%')}
@@ -1624,7 +1660,7 @@ function openOrderEdit(id){
     <div class="modal-body">
       <div class="form-grid">
         <div class="field"><label>Customer</label>
-          <select id="f_cust" ${inv?'disabled':''}>${DB.customers.map(c=>`<option value="${c.id}" ${o.custId===c.id?'selected':''}>${c.name}</option>`).join('')}</select></div>
+          <select id="f_cust" ${inv?'disabled':''}>${DB.customers.map(c=>`<option value="${c.id}" ${o.custId===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>
         <div class="field"><label>Status</label>
           <select id="f_ostatus" ${inv?'disabled':''}>${['Pending','Confirmed','Packed','Delivered','Cancelled'].map(s=>`<option ${s===o.status?'selected':''}>${s}</option>`).join('')}</select></div>
         <div class="field"><label>Delivery date</label><input type="date" id="f_deliv" value="${o.deliveryDate||''}"></div>
@@ -1873,7 +1909,7 @@ function renderReports(){
         <div class="card-body flush table-scroll">
           <table>
             <thead><tr><th>Customer</th><th class="num">Invoices</th><th class="num">Total Sales</th></tr></thead>
-            <tbody>${byCustomer.length? byCustomer.map(r=>`<tr><td>${r.name}</td><td class="num">${r.count}</td><td class="num">${fmt(r.total)}</td></tr>`).join('') : `<tr class="empty-row"><td colspan="3">No sales recorded yet.</td></tr>`}</tbody>
+            <tbody>${byCustomer.length? byCustomer.map(r=>`<tr><td>${esc(r.name)}</td><td class="num">${r.count}</td><td class="num">${fmt(r.total)}</td></tr>`).join('') : `<tr class="empty-row"><td colspan="3">No sales recorded yet.</td></tr>`}</tbody>
           </table>
         </div>
       </div>
@@ -1882,7 +1918,7 @@ function renderReports(){
         <div class="card-body flush table-scroll">
           <table>
             <thead><tr><th>Product</th><th class="num">Units</th><th class="num">Revenue</th></tr></thead>
-            <tbody>${byProduct.length? byProduct.map(r=>`<tr><td>${r.name}</td><td class="num">${r.qty}</td><td class="num">${fmt(r.revenue)}</td></tr>`).join('') : `<tr class="empty-row"><td colspan="3">No sales recorded yet.</td></tr>`}</tbody>
+            <tbody>${byProduct.length? byProduct.map(r=>`<tr><td>${esc(r.name)}</td><td class="num">${r.qty}</td><td class="num">${fmt(r.revenue)}</td></tr>`).join('') : `<tr class="empty-row"><td colspan="3">No sales recorded yet.</td></tr>`}</tbody>
           </table>
         </div>
       </div>
@@ -1913,10 +1949,10 @@ function renderSettings(){
         <div class="card-head"><h3>Company Information</h3></div>
         <div class="card-body">
           <div class="form-grid">
-            <div class="field"><label>Company Name</label><input type="text" value="${CURRENT_USER.company}"></div>
+            <div class="field"><label>Company Name</label><input type="text" value="${esc(CURRENT_USER.company)}"></div>
             <div class="field"><label>KRA PIN</label><input type="text" placeholder="e.g. P05123456X"></div>
             <div class="field"><label>Phone</label><input type="text" placeholder="e.g. 0722 000 000"></div>
-            <div class="field"><label>Email</label><input type="text" value="${CURRENT_USER.email}"></div>
+            <div class="field"><label>Email</label><input type="text" value="${esc(CURRENT_USER.email)}"></div>
             <div class="field" style="grid-column:1/-1;"><label>Address</label><input type="text" value="Biashara Street, Nairobi"></div>
           </div>
         </div>
@@ -1946,7 +1982,7 @@ function renderSettings(){
           <table>
             <thead><tr><th>Name</th><th>Role</th></tr></thead>
             <tbody>
-              <tr><td>${CURRENT_USER.name}</td><td>Owner</td></tr>
+              <tr><td>${esc(CURRENT_USER.name)}</td><td>Owner</td></tr>
             </tbody>
           </table>
         </div>
@@ -1959,7 +1995,7 @@ function renderSettings(){
     <div class="card">
       <div class="card-head"><h3>Account &amp; Data</h3></div>
       <div class="card-body">
-        <p class="subtle" style="margin:0 0 12px 0;">Signed in as <strong style="color:var(--ink-900);">${CURRENT_USER.name}</strong> (${CURRENT_USER.email}) at <strong style="color:var(--ink-900);">${CURRENT_USER.company}</strong>. Records are saved in this browser, under this account.</p>
+        <p class="subtle" style="margin:0 0 12px 0;">Signed in as <strong style="color:var(--ink-900);">${esc(CURRENT_USER.name)}</strong> (${esc(CURRENT_USER.email)}) at <strong style="color:var(--ink-900);">${esc(CURRENT_USER.company)}</strong>. Records are saved in this browser, under this account.</p>
         <div style="display:flex; gap:10px;">
           <button class="btn btn-danger" onclick="clearCompanyData()">Clear all sales data</button>
           <button class="btn" onclick="handleLogout()">Log out</button>
@@ -2011,7 +2047,7 @@ document.addEventListener('DOMContentLoaded', checkSessionOnLoad);
 
 /* ===== Sales Hub pages matching Books: Bulk Invoicing, Credit Notes, Recurring Invoices, Delivery, Statement ===== */
 const head=(t,sub,act)=>`<div class="page-head"><div><div class="page-title">${t}</div><div class="page-sub">${sub}</div></div>${act||''}</div>`;
-const custOpts=()=>'<option value="">Select customer</option>'+DB.customers.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+const custOpts=()=>'<option value="">Select customer</option>'+DB.customers.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
 const invOpts=()=>'<option value="">Select invoice</option>'+DB.invoices.filter(i=>i.total-i.paid>0).map(i=>`<option value="${i.id}">${i.id} · ${custName(i.custId)} · due ${fmt(i.total-i.paid)}</option>`).join('');
 const gid=id=>document.getElementById(id);
 
@@ -2052,7 +2088,7 @@ function renderRecurring(){
   return head('Recurring Invoices','Schedules that generate invoices automatically',`<div class="page-actions"><button class="btn btn-primary" onclick="runRecurring()">Run Due Now</button></div>`)+`
   <div class="card"><div class="card-body"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
     <select id="rcCust">${custOpts()}</select>
-    <select id="rcProd"><option value="">Select product</option>${DB.products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}</select>
+    <select id="rcProd"><option value="">Select product</option>${DB.products.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>
     <input id="rcQty" type="number" min="1" value="1" placeholder="Qty">
     <select id="rcFreq"><option>Weekly</option><option selected>Monthly</option><option>Quarterly</option></select>
     <input id="rcNext" type="date" value="${todayISO()}"><button class="btn btn-primary" onclick="saveRecurring()">Save Schedule</button></div></div></div>
@@ -2106,7 +2142,7 @@ function renderStatement(){
     <select onchange="pageState.stCust=this.value;renderPage()">${custOpts().replace(`value="${cid}"`,`value="${cid}" selected`)}</select>
     <input type="date" value="${f}" onchange="pageState.stFrom=this.value;renderPage()"><input type="date" value="${t}" onchange="pageState.stTo=this.value;renderPage()"></div></div>
   <div class="card" style="margin-top:16px"><div class="card-body flush table-scroll"><table><thead><tr><th>Date</th><th>Ref</th><th>Description</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead><tbody>
-  ${rows.map(r=>`<tr><td>${r.d}</td><td>${r.ref}</td><td>${r.desc}</td><td class="num">${r.dr?fmt(r.dr):''}</td><td class="num">${r.cr?fmt(r.cr):''}</td><td class="num">${fmt(r.bal)}</td></tr>`).join('')||`<tr class="empty-row"><td colspan="6">${cid?'No activity in this period.':'Select a customer.'}</td></tr>`}
+  ${rows.map(r=>`<tr><td>${r.d}</td><td>${esc(r.ref)}</td><td>${esc(r.desc)}</td><td class="num">${r.dr?fmt(r.dr):''}</td><td class="num">${r.cr?fmt(r.cr):''}</td><td class="num">${fmt(r.bal)}</td></tr>`).join('')||`<tr class="empty-row"><td colspan="6">${cid?'No activity in this period.':'Select a customer.'}</td></tr>`}
   </tbody></table></div></div>`;
 }
 
