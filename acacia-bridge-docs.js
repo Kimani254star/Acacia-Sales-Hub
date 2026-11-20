@@ -60,7 +60,7 @@
         var nm = String(pick(i, ['product', 'name', 'itemName', 'desc', 'description']) || 'Item'), sku = pick(i, ['sku', 'code']);
         var qty = num(pick(i, ['qty', 'quantity'])) || 1, price = num(pick(i, ['price', 'unitPrice', 'rate', 'sellingPrice']));
         if (!price && num(i.subtotal) && qty) price = r2(num(i.subtotal) / qty);
-        var p = null; d.products.forEach(function (x) { if (!p && ((sku && x.sku && low(x.sku) === low(sku)) || low(x.name) === low(nm))) p = x; });
+        var p = null; d.products.forEach(function (x) { if (!p && sku && x.sku && low(x.sku) === low(sku) && low(x.name) === low(nm)) p = x; }); if (!p) d.products.forEach(function (x) { if (!p && ((sku && x.sku && low(x.sku) === low(sku)) || low(x.name) === low(nm))) p = x; });
         return { pid: p ? p.id : 'BK:' + nm, qty: qty, price: price, disc: num(i.discount) };
       });
     }

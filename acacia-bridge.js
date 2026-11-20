@@ -69,7 +69,7 @@
         list: function () { return db().invoices; },
         custById: function (id) { return db().customers.find(function (c) { return c.id === id; }); },
         custByName: function (n) { return db().customers.find(function (c) { return low(c.name) === low(n); }); },
-        prodFor: function (name, sku) { return db().products.find(function (p) { return (sku && p.sku && low(p.sku) === low(sku)) || low(p.name) === low(name); }); },
+        prodFor: function (name, sku) { var P = db().products, ls = low(sku), ln = low(name); var both = P.find(function (p) { return ls && p.sku && low(p.sku) === ls && low(p.name) === ln; }); if (both) return both; var bs = P.filter(function (p) { return ls && p.sku && low(p.sku) === ls; }); if (bs.length === 1) return bs[0]; return P.find(function (p) { return low(p.name) === ln; }); },
         eligible: function (i) { return !!this.custById(i.custId); },
         numberOf: function (i) { return i.id; },
         bookNo: function (i, taken) { var n = String(i.id); return taken[n] ? 'SL-' + n : n; },
@@ -115,7 +115,7 @@
           var agg = {}, order = [];
           inv.forEach(function (x) {
             if (!x || !x.name) return;
-            var sku = String(x.sku || x.code || x.itemCode || ''), key = low(sku || x.name), a = agg[key];
+            var sku = String(x.sku || x.code || x.itemCode || ''), key = low(sku) + '|' + low(x.name), a = agg[key];
             if (!a) { a = agg[key] = { name: String(x.name), sku: sku, qty: 0, price: 0, vat: 16, unit: String(x.unit || x.uom || 'piece'), reorder: 0 }; order.push(key); }
             a.qty += parseFloat(x.qty) || 0;
             var pr = Number(x.sellingPrice || x.sellPrice || x.price || 0) || 0; if (pr && !a.price) a.price = pr;
@@ -346,7 +346,7 @@
   function removeFrom(list, rec) { var i = list.indexOf(rec); if (i > -1) list.splice(i, 1); }
 
   async function pass(company, K, vw, rows, key, isInv, inbox, out) {
-    var newInv = [], changed = false, pushes = [], deletes = [], later = [], row = rows[key], bArr = [], R = reg(key);
+    var changed = false, pushes = [], deletes = [], later = [], row = rows[key], bArr = [], R = reg(key);
     var have = !!row;                                        /* no row = Books has none yet (nothing may be removed from the app then) */
     if (row) { try { var p = JSON.parse(row.value); if (typeof p === 'string') p = JSON.parse(p); if (!Array.isArray(p)) return false; bArr = p; } catch (e) { return false; } }
     var byId = {}, taken = {}; bArr.forEach(function (b) { if (b && b.id != null) { byId[String(b.id)] = b; if (b.invoiceNumber) taken[String(b.invoiceNumber)] = 1; } });
@@ -421,15 +421,12 @@
       var o = K.toBooks(r, true, taken); o.id = K.bookIdFor ? K.bookIdFor(r) : bookId(r.id, isInv);
       if (K.bookIdFor && byId[String(o.id)]) o.id = String(o.id) + '-' + hx(String(r.id)).slice(0, 3);   /* same number already used by a different person in Books */
       if (!isInv && !K.noExtras) { o.createdAt = new Date().toISOString(); o.receivables = 0; } else if (isInv) taken[o.invoiceNumber] = 1;
-      pushes.push(o); if (isInv) newInv.push(String(o.id));
+      pushes.push(o);
       (function (rr, oo) { later.push(function () { rr._bk = { id: oo.id, bh: h(vw(oo)), ah: h(vw(K.toBooks(rr, false, taken))), ph: h(payView(oo)) }; if (isInv && K.stock && APP === 'sell') K.stock(rr, false); R[String(oo.id)] = { a: rr.id, m: 0, t: 0 }; }); })(r, o);
     });
 
     var rpc = w.AcaciaCloud.rpc;
     for (var i = 0; i < pushes.length; i += 100) await rpc('acx_books_upsert', { p_company: company, p_key: key, p_records: pushes.slice(i, i + 100) });
-    /* take the sale off the cloud stock now (server side, once per invoice), so stock is right in Inventory, POS, Stocktake,
-       Expenses and CRM even when Books is closed. If a line cannot be found the server changes nothing and Books deducts as before. */
-    if (isInv && (APP === 'sell' || APP === 'crm')) for (var ni = 0; ni < newInv.length; ni++) { try { await rpc('acx_stock_apply', { p_company: company, p_invoice_id: newInv[ni] }); } catch (e) { console.warn('[acacia-bridge] stock apply', e); } }
     if (deletes.length) await rpc('acx_books_delete', { p_company: company, p_key: key, p_ids: deletes });
     later.forEach(function (f) { f(); });
     if (pushes.length || deletes.length) changed = true;
@@ -471,23 +468,6 @@
 
   function readKeys() { var k = ['customers', 'invoices', 'suppliers', 'employees', 'projects', 'appInbox']; if (APP === 'expenses') k.push('chartOfAccounts', 'banks'); if (APP === 'projects') k.push('plans', 'budgets'); if (APP === 'sell') k.push('inventory', 'banks', 'chartOfAccounts'); return k; }
 
-  /* Stock: join every Books warehouse row (inventory_<warehouse>) into one "inventory" list, read through acx_stock_read so
-     no warehouse is missed (a plain read of 'inventory' returned nothing when Books keeps stock per warehouse). */
-  async function mergeStock(company, rows) {
-    var res; try { res = await w.AcaciaCloud.rpc('acx_stock_read', { p_company: company }); } catch (e) { return; }   /* not installed yet: run acacia_stock_sync.sql */
-    if (!Array.isArray(res) || !res.length) return;
-    var all = [], last = null;
-    res.forEach(function (r) {
-      var v = r.value; try { for (var i = 0; i < 3 && typeof v === 'string'; i++) v = JSON.parse(v); } catch (e) { return; }
-      if (!Array.isArray(v)) return;
-      var wh = r.key.indexOf('inventory_') === 0 ? r.key.slice(10) : '';
-      v.forEach(function (x) { if (x && typeof x === 'object') { if (!x.warehouse && wh) x.warehouse = wh; all.push(x); } });
-      if (!last || String(r.updated_at) > String(last)) last = r.updated_at;
-    });
-    Object.keys(rows).forEach(function (k) { if (k.indexOf('inventory_') === 0) delete rows[k]; });
-    rows.inventory = { key: 'inventory', value: JSON.stringify(all), updated_at: last };
-  }
-
   async function sync(force) {
     if (busy) return; var u = user(); APP = detect();
     if (!u || !APP) return;
@@ -497,7 +477,6 @@
     try {
       var rows = {}, res = await w.AcaciaCloud.rpc('acx_books_read', { p_company: u.companyId, p_keys: readKeys() });
       (res || []).forEach(function (r) { rows[r.key] = r; });
-      try { await mergeStock(u.companyId, rows); } catch (e) { console.warn('[acacia-bridge] stock', e); }
       if (APP === 'projects' && rows.projects) {
         try { var pj = JSON.parse(rows.projects.value); if (typeof pj === 'string') pj = JSON.parse(pj);
           if (Array.isArray(pj) && pj.some(function (x) { return x && x.id == null; })) {
