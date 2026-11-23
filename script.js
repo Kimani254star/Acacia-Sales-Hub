@@ -820,8 +820,13 @@ function renderDashboard(){
   const pendingOrders = DB.orders.filter(o=>o.status==='Pending'||o.status==='Confirmed');
   const lowStock = DB.products.filter(p=>p.stock <= p.reorder);
   const topProducts = DB.products.map(p=>({...p,sold:inv.flatMap(i=>i.lines||[]).filter(l=>l.pid===p.id).reduce((s,l)=>s+(Number(l.qty)||0),0)})).sort((a,b)=>b.sold-a.sold).slice(0,5);
-  const ms = A.months(6), byM = {}; inv.forEach(i=>{const k=String(i.date||'').slice(0,7);byM[k]=(byM[k]||0)+(Number(i.total)||0);});
-  const trend = ms.map(m=>({l:m.l,v:byM[m.k]||0}));
+  const ms = A.months(6), monthTotals = rows => { const totals={}; rows.forEach(r=>{const k=String(r.date||'').slice(0,7);if(k) totals[k]=(totals[k]||0)+(Number(r.amount!=null?r.amount:r.total)||0);}); return ms.map(m=>totals[m.k]||0); };
+  const trendSeries = [
+    {label:'Quotes',values:monthTotals(DB.quotes)},
+    {label:'Sales Orders',values:monthTotals(DB.orders)},
+    {label:'Invoices',values:monthTotals(inv)},
+    {label:'Payments Received',values:monthTotals(DB.payments.map(p=>({...p,amount:p.amount}))) }
+  ];
   const recent = [...inv].sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.id||'').localeCompare(String(a.id||''))).slice(0,6);
   const money = n => fmt(Number(n)||0);
   const tableHead = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left;color:var(--ax-mut);font-size:12px"><th style="padding:9px 12px">Customer</th><th>Invoice</th><th>Date</th><th style="text-align:right">Total</th><th style="padding:9px 12px">Status</th></tr></thead><tbody>';
@@ -850,7 +855,7 @@ function renderDashboard(){
     </div>
   </div>
   <div class="adx-grid" style="grid-template-columns:minmax(0,1fr)">
-    ${A.panel('Sales Trends',trend.some(t=>t.v)?A.line(trend):'<div class="adx-empty">Sales you record will draw the trend here.</div>',{i:'trend'})}
+    ${A.panel('Sales Trends',trendSeries.some(row=>row.values.some(v=>v>0))?A.multiLine(ms.map(m=>m.l),trendSeries):'<div class="adx-empty">Sales quotes, orders, invoices and payments will appear here as they are recorded.</div>',{i:'trend'})}
   </div>
   </div>`;
 }
