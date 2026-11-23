@@ -806,128 +806,37 @@ function renderPage(){
    DASHBOARD
 ===================================================================== */
 function renderDashboard(){
-  const todayInvoices = DB.invoices.filter(i=> i.date === todayISO());
-  const salesToday = todayInvoices.reduce((s,i)=>s+i.total,0);
-  const monthInvoices = DB.invoices; // demo dataset only spans a short window
-  const salesMonth = monthInvoices.reduce((s,i)=>s+i.total,0);
-  const outstanding = DB.invoices.reduce((s,i)=> s + (i.total-i.paid), 0);
-  const paymentsReceived = DB.payments.reduce((s,p)=>s+p.amount,0);
+  const A = ADX, C = A.C, K = n => 'KES ' + A.short(n);
+  const inv = DB.invoices, total = inv.reduce((s,i)=>s+i.total,0);
+  const outstanding = inv.reduce((s,i)=> s + (i.total-i.paid), 0);
+  const received = DB.payments.reduce((s,p)=>s+p.amount,0);
+  const avg = inv.length ? total/inv.length : 0;
   const pendingOrders = DB.orders.filter(o=>o.status==='Pending'||o.status==='Confirmed').length;
-
   const lowStock = DB.products.filter(p=>p.stock <= p.reorder);
-  const topProducts = [...DB.products].map(p=>{
-    const sold = DB.invoices.flatMap(i=>i.lines).filter(l=>l.pid===p.id).reduce((s,l)=>s+l.qty,0);
-    return {...p, sold};
-  }).sort((a,b)=>b.sold-a.sold).slice(0,5);
-
-  const recent = DB.invoices.slice(0,6);
-
-  return `
-    <div class="page-head">
-      <div>
-        <div class="page-title">Dashboard</div>
-        <div class="page-sub">Saturday, 5 September 2026 — here's where sales stand today.</div>
-      </div>
-      <div class="head-actions">
-        <button class="btn" onclick="goTo('quotes')">New Quote</button>
-        <button class="btn btn-primary" onclick="openNewSaleModal()">+ New Sale</button>
-      </div>
-    </div>
-
-    <div class="kpi-row">
-      <div class="kpi-card">
-        <div class="kpi-label">Sales Today</div>
-        <div class="kpi-value">${fmtShort(salesToday)}</div>
-        <div class="kpi-note">${todayInvoices.length} invoice${todayInvoices.length===1?'':'s'} issued</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Sales This Month</div>
-        <div class="kpi-value">${fmtShort(salesMonth)}</div>
-        <div class="kpi-note">${monthInvoices.length} invoices total</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Outstanding Invoices</div>
-        <div class="kpi-value">${fmtShort(outstanding)}</div>
-        <div class="kpi-note ${outstanding>0?'warn':''}">${DB.invoices.filter(i=>i.status!=='Paid').length} unpaid or partial</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Payments Received</div>
-        <div class="kpi-value">${fmtShort(paymentsReceived)}</div>
-        <div class="kpi-note">${DB.payments.length} payments logged</div>
-      </div>
-    </div>
-
-    <div class="kpi-row">
-      <div class="kpi-card">
-        <div class="kpi-label">Quotes</div>
-        <div class="kpi-value">${DB.quotes.length}</div>
-        <div class="kpi-note">${DB.quotes.filter(q=>q.status==='Draft'||q.status==='Sent').length} awaiting response</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Sales Orders</div>
-        <div class="kpi-value">${DB.orders.length}</div>
-        <div class="kpi-note">${pendingOrders} pending fulfilment</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Invoices</div>
-        <div class="kpi-value">${DB.invoices.length}</div>
-        <div class="kpi-note">${DB.invoices.filter(i=>daysOverdue(i)>0).length} overdue</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Low-stock Alerts</div>
-        <div class="kpi-value">${lowStock.length}</div>
-        <div class="kpi-note ${lowStock.length?'warn':''}">${lowStock.length? 'Needs reordering' : 'All items healthy'}</div>
-      </div>
-    </div>
-
-    <div class="two-col">
-      <div class="card">
-        <div class="card-head"><h3>Recent Sales</h3><span class="row-link" onclick="goTo('invoices')">View all invoices</span></div>
-        <div class="card-body flush table-scroll">
-          <table>
-            <thead><tr><th>Customer</th><th>Invoice</th><th>Date</th><th class="num">Total</th><th>Status</th></tr></thead>
-            <tbody>
-              ${recent.length? recent.map(i=>`
-                <tr>
-                  <td>${custName(i.custId)}</td>
-                  <td><span class="row-link" onclick="openInvoiceDetail('${i.id}')">${i.id}</span></td>
-                  <td>${i.date}</td>
-                  <td class="num">${fmt(i.total)}</td>
-                  <td>${statusPill(i.status)}</td>
-                </tr>`).join('') : `<tr class="empty-row"><td colspan="5">No invoices yet — sales you record will show up here.</td></tr>`}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div>
-        <div class="card">
-          <div class="card-head"><h3>Top-selling Products</h3></div>
-          <div class="card-body flush table-scroll">
-            <table>
-              <thead><tr><th>Product</th><th class="num">Units sold</th></tr></thead>
-              <tbody>
-                ${topProducts.length? topProducts.map(p=>`<tr><td>${p.name}</td><td class="num">${p.sold}</td></tr>`).join('') : `<tr class="empty-row"><td colspan="2">No sales recorded yet.</td></tr>`}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-head"><h3>Low-stock Alerts</h3><span class="row-link" onclick="goTo('products')">View products</span></div>
-          <div class="card-body flush table-scroll">
-            <table>
-              <thead><tr><th>Product</th><th class="num">In stock</th><th class="num">Reorder at</th></tr></thead>
-              <tbody>
-                ${lowStock.length? lowStock.map(p=>`
-                  <tr><td>${p.name}</td><td class="num">${p.stock}</td><td class="num">${p.reorder}</td></tr>`).join('')
-                  : `<tr class="empty-row"><td colspan="3">Every product is above its reorder level.</td></tr>`}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
+  const topProducts = DB.products.map(p=>({...p, sold: inv.flatMap(i=>i.lines).filter(l=>l.pid===p.id).reduce((s,l)=>s+l.qty,0)})).sort((a,b)=>b.sold-a.sold).slice(0,5);
+  const topMax = Math.max(1, ...topProducts.map(p=>p.sold));
+  const ms = A.months(6), byM = {}; inv.forEach(i=>{ const k=String(i.date||'').slice(0,7); byM[k]=(byM[k]||0)+i.total; });
+  const trend = ms.map(m=>({l:m.l, v:byM[m.k]||0}));
+  const overdue = inv.filter(i=>daysOverdue(i)>0).length;
+  const recent = inv.slice(0,6);
+  return `<div class="adx-wrap">
+  ${A.head('cart','Sales Dashboard', new Date().toLocaleDateString('en-KE',{weekday:'long', day:'numeric', month:'long', year:'numeric'})+' — here\'s where sales stand.', `<button class="adx-btn" onclick="goTo('quotes')">New Quote</button><button class="adx-btn pri" onclick="openNewSaleModal()">+ New Sale</button>`)}
+  <div class="adx-grid adx-g4">
+    ${A.kpi({i:'cart',l:'Total Sales',v:K(total),d:`<div class="adx-d fl">${inv.length} invoices</div>`})}
+    ${A.kpi({i:'bag',c:'b',l:'Orders',v:DB.orders.length,d:`<div class="adx-d fl">${pendingOrders} pending fulfilment</div>`})}
+    ${A.kpi({i:'users',c:'o',l:'Customers',v:DB.customers.length,d:`<div class="adx-d fl">${DB.quotes.filter(q=>q.status==='Draft'||q.status==='Sent').length} quotes awaiting reply</div>`})}
+    ${A.kpi({i:'trend',c:'p',l:'Average Order',v:K(avg),d:`<div class="adx-d fl">${K(received)} received</div>`})}
+  </div>
+  <div class="adx-grid adx-g21">
+    ${A.panel('Sales Trend — Last 6 Months', trend.some(t=>t.v) ? A.line(trend) : '<div class="adx-empty">Sales you record will draw the trend here.</div>', {i:'trend'})}
+    ${A.panel('Top Products', topProducts.some(p=>p.sold) ? topProducts.map(p=>A.hb(p.name, p.sold/topMax*100, p.sold+' sold')).join('') : '<div class="adx-empty">No product sales yet.</div>', {i:'box', link:['Products',"goTo('products')"]})}
+  </div>
+  <div class="adx-grid adx-g21">
+    ${A.panel('Recent Orders', recent.length ? `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left;color:var(--ax-mut);font-size:12px"><th style="padding:6px">Invoice</th><th>Customer</th><th style="text-align:right">Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>${recent.map(i=>`<tr style="border-top:1px solid var(--ax-line);cursor:pointer" onclick="openInvoiceDetail('${i.id}')"><td style="padding:8px 6px;font-weight:600">${A.e(i.id)}</td><td>${A.e(custName(i.custId))}</td><td style="text-align:right">${fmt(i.total)}</td><td>${statusPill(i.status)}</td><td>${A.e(i.date)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="adx-empty">No invoices yet — sales you record will show up here.</div>', {i:'file', link:['View all',"goTo('invoices')"]})}
+    ${A.panel('Needs Attention', A.row('clock','Outstanding invoices', K(outstanding), "goTo('invoices')") + A.row('file','Overdue invoices', overdue, "goTo('invoices')") + A.row('box','Low-stock items', lowStock.length ? lowStock.length+' to reorder' : 'All healthy', "goTo('products')") + A.row('cart','Orders to fulfil', pendingOrders, "goTo('orders')"), {i:'tag'})}
+  </div>
+  <div class="adx-banner"><b>Grow your sales</b><span>Send a quote to a customer and convert it to an order in one click.</span><button class="adx-btn pri" onclick="goTo('quotes')">Create quote</button></div>
+  </div>`;
 }
 
 function statusPill(status){
